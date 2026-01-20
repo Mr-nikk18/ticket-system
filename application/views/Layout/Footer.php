@@ -48,7 +48,14 @@
 <script src="<?= base_url() ?>assets/dist/js/demo.js"></script>
 <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
 <script src="<?= base_url() ?>assets/dist/js/pages/dashboard.js"></script>
-
+<script>
+    setTimeout(function () {
+        document.querySelectorAll('.flash-msg').forEach(function (el) {
+            el.classList.remove('show');
+            el.classList.add('hide');
+        });
+    }, 3000); // 3 seconds
+</script>
 
 
 </body>

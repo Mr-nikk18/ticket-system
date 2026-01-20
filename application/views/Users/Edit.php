@@ -35,24 +35,135 @@ $this->load->view('layout/Header');
               </div>
               <!-- /.card-header -->
               <!-- form start -->
-             <form method="post" action="<?= base_url('TRS/update/'.$value['ticket_id']); ?>">
+   <?php if ($this->session->userdata('role_id') == 1) { ?>
 
-<input type="hidden" name="ticket_id" value="<?= $value['ticket_id']; ?>">
+<form method="post" action="<?= base_url('TRS/update/'.$value['ticket_id']) ?>">
 
-<div class="form-group">
-  <label>Title</label>
-  <input type="text" name="title" class="form-control"
-         value="<?= $value['title']; ?>">
-</div>
+    <div class="form-group">
+        <label>Title</label>
+        <input type="text" name="title"
+               class="form-control"
+               value="<?= $value['title'] ?>" required>
+    </div>
 
-<div class="form-group">
-  <label>Description</label>
-  <textarea name="description" class="form-control" required><?= $value['description']; ?></textarea>
-</div>
+    <div class="form-group">
+        <label>Description</label>
+        <textarea name="description"
+                  class="form-control"
+                  rows="4"
+                  required><?= $value['description'] ?></textarea>
+    </div>
 
-
-<button type="submit" class="btn btn-primary">Update</button>
+    <button type="submit" class="btn btn-primary">Update Ticket</button>
 </form>
+
+<?php } ?>
+
+<?php if ($this->session->userdata('role_id') == 2) { ?>
+
+<form method="post" action="<?= base_url('TRS/update/'.$value['ticket_id']) ?>">
+
+    <div class="form-group">
+        <label>Title</label>
+        <input type="text"
+               class="form-control"
+               value="<?= $value['title'] ?>"
+               readonly>
+    </div>
+
+    <div class="form-group">
+        <label>Description</label>
+        <textarea class="form-control"
+                  rows="4"
+                  readonly><?= $value['description'] ?></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>Change Status</label>
+        <select name="status" class="form-control" required>
+            <option value="in_progress"
+                <?= $value['status']=='in_progress' ? 'selected' : '' ?>>
+                In Progress
+            </option>
+            <option value="resolved"
+                <?= $value['status']=='resolved' ? 'selected' : '' ?>>
+                Resolved
+            </option>
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-success">
+        Update Status
+    </button>
+
+</form>
+
+<?php } ?>
+<?php if ($this->session->userdata('role_id') == 3) { ?>
+
+<form method="post" action="<?= base_url('TRS/update/'.$value['ticket_id']) ?>">
+
+    <div class="form-group">
+        <label>Title</label>
+        <input type="text"
+               class="form-control"
+               value="<?= $value['title'] ?>"
+               readonly>
+    </div>
+
+    <div class="form-group">
+        <label>Description</label>
+        <textarea class="form-control"
+                  rows="4"
+                  readonly><?= $value['description'] ?></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>Assign To</label>
+        <select name="assigned_engineer_id" class="form-control">
+            <option value="">-- Select Developer --</option>
+
+            <option value="<?= $this->session->userdata('user_id') ?>">
+                Assign to Me
+            </option>
+
+            <?php foreach ($developers as $dev) { ?>
+                <option value="<?= $dev['user_id'] ?>"
+                    <?= ($value['assigned_engineer_id'] == $dev['user_id']) ? 'selected' : '' ?>>
+                    <?= $dev['user_name'] ?>
+                </option>
+            <?php } ?>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Status</label>
+        <select name="status" class="form-control" required>
+            <option value="in_progress"
+                <?= $value['status']=='in_progress' ? 'selected' : '' ?>>
+                In Progress
+            </option>
+            <option value="resolved"
+                <?= $value['status']=='resolved' ? 'selected' : '' ?>>
+                Resolved
+            </option>
+            <option value="closed"
+                <?= $value['status']=='closed' ? 'selected' : '' ?>>
+                Closed
+            </option>
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        Update Ticket
+    </button>
+
+</form>
+
+<?php } ?>
+
+
+
       </div>
             <!-- /.card -->
             </div>

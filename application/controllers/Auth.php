@@ -81,6 +81,7 @@ public function setdataregistration()
         'user_name' => $this->input->post('user_name', true),
         'name'      => $this->input->post('name', true),
         'email'     => $this->input->post('email', true),
+        'department' =>$this->input->post('department',true),
         'password'  => password_hash($password, PASSWORD_DEFAULT),
         'created_at'=> date('Y-m-d H:i:s')
     ];
@@ -91,7 +92,7 @@ public function setdataregistration()
         $this->session->set_flashdata('success', 'Registration successful');
         redirect('verify');
     } else {
-        $this->session->set_flashdata('error', 'Registration failed');
+        $this->session->set_flashdata('failed', 'Registration failed');
         redirect('register');
     }
 }
@@ -127,7 +128,7 @@ public function setdataregistration()
 
     if ($this->form_validation->run() == FALSE) {
        // $this->load->view('Same_pages/forget_password');
-       $this->session->set_flashdata('error', 'Link is Send to Your mail id');    
+       $this->session->set_flashdata('failed', 'Link is Send to Your mail id');    
        redirect('verify');
         
         
@@ -170,7 +171,7 @@ public function setdataregistration()
 
         redirect('verify');
     } else {
-        $this->session->set_flashdata('error', 'Failed to send email');    
+        $this->session->set_flashdata('failed', 'Failed to send email');    
 
        redirect('verify');
     }
@@ -178,34 +179,41 @@ public function setdataregistration()
 
 public function Modify_pass()
 {
-    // POST data
-    $token    = $this->input->post('token');     // hidden input se
-    $password = $this->input->post('password');
-    $confirm_password = $this->input->post('confoirm_password');
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
 
-    // basic validation
-    if (!$token || !$password) {
+    $token    = $this->input->post('token');
+    $password = $this->input->post('password');
+    $confirm_password = $this->input->post('confirm_password');
+
+
+    // validation
+    if (!$token || !$password || !$confirm_password) {
         $this->session->set_flashdata('failed', 'Invalid request');
-        return;
+        redirect('verify');
+        exit;
     }
 
-    // load model
+    // password mismatch
+    if ($password !== $confirm_password) {
+        $this->session->set_flashdata('failed', 'Passwords do not match');
+        redirect('verify');
+        exit;
+    }
+
     $this->load->model('User_model');
 
-    if ($confirm_password == $password) {
-    // update password USING TOKEN
     $updated = $this->User_model->update_password_by_token($token, $password);
 
     if ($updated) {
         $this->session->set_flashdata('success', 'Password updated successfully');
-        
-        redirect('login'); // production me
+        redirect('verify');   // login / verify page
+        exit;
     } else {
         $this->session->set_flashdata('failed', 'Link expired or invalid');
-       
         redirect('forget_password');
+        exit;
     }
-}
 }
 
 public function form($token = null)

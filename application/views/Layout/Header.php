@@ -1,3 +1,9 @@
+<?php
+$role_id = $this->session->userdata('role_id');
+$username = $this->session->userdata('username');
+?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,8 +32,22 @@
   <!-- summernote -->
   <link rel="stylesheet" href="<?= base_url() ?>assets/plugins/summernote/summernote-bs4.min.css">
 </head>
+
 <body class="hold-transition sidebar-mini layout-fixed">
 <div class="wrapper">
+ <!--   <body class="hold-transition login-page"> -->
+<?php if ($this->session->flashdata('error')): ?>
+    <div class="alert alert-danger alert-dismissible fade show text-center flash-msg" role="alert">
+        <?= $this->session->flashdata('error'); ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($this->session->flashdata('success')): ?>
+    <div class="alert alert-success alert-dismissible fade show text-center flash-msg" role="alert">
+        <?= $this->session->flashdata('success'); ?>
+    </div>
+<?php endif; ?>
+
 
   <!-- Preloader -->
   <div class="preloader flex-column justify-content-center align-items-center">
@@ -42,7 +62,7 @@
         <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
       </li>
       <li class="nav-item d-none d-sm-inline-block">
-        <a href="<?= base_url('index.php/Auth/Dashboard') ?>" class="nav-link">Home</a>
+        <a href="<?= base_url('TRS/Dashboard') ?>" class="nav-link">Home</a>
       </li>
       <li class="nav-item d-none d-sm-inline-block">
         <a href="#" class="nav-link">Contact</a>
@@ -188,7 +208,7 @@
           <img src="<?= base_url() ?>assets/dist/img/user2-160x160.jpg" class="img-circle elevation-2" alt="User Image">
         </div>
         <div class="info">
-          <a href="#" class="d-block">Alexander Pierce</a>
+         <a href="#" class="d-block"><?= $username ?></a>
         </div>
       </div>
 
@@ -204,45 +224,97 @@
         </div>
       </div>
 
-      <!-- Sidebar Menu -->
-      <nav class="mt-2">
-        <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-          <!-- Add icons to the links using the .nav-icon class
-               with font-awesome or any other icon font library -->
-          <li class="nav-item menu-open">
-            <a href="#" class="nav-link active">
-              <i class="nav-icon fas fa-tachometer-alt"></i>
-              <p>
-               Ticket
-                <i class="right fas fa-angle-left"></i>
-              </p>
-            </a>
-            <ul class="nav nav-treeview">
-              <li class="nav-item">
-                <a href="<?= base_url('TRS/see') ?>" class="nav-link active">
-                  <i class="far fa-circle nav-icon"></i>
-                  <p>Generate Ticket</p>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a href="<?= base_url('List') ?>" class="nav-link">
-                  <i class="far fa-circle nav-icon"></i>
-                  <p>My Ticket</p>
-                </a>
-              </li>
-          <br><br><br>
-          <br><br><br>
-           <br><br><br>
-           <br><br><br>
-          <li class="nav-item">
-            <a href="<?= base_url('index.php/Auth/logout') ?>" class="nav-link">
-              <i class="nav-icon far fa-circle text-danger"></i>
-              <p>Logout</p>
-            </a>
-          </li>
-        </ul>
-      </nav>
-      <!-- /.sidebar-menu -->
+<!-- Sidebar Menu -->
+<nav class="mt-2">
+  <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+
+    <!-- DASHBOARD (ALL ROLES) -->
+    <li class="nav-item">
+      <a href="<?= base_url('TRS/dashboard') ?>" class="nav-link">
+        <i class="nav-icon fas fa-tachometer-alt"></i>
+        <p>Dashboard</p>
+      </a>
+    </li>
+
+    <!-- USER MENU -->
+    <?php if ($role_id == 1) { ?>
+      <li class="nav-item">
+        <a href="<?= base_url('TRS/see') ?>" class="nav-link">
+          <i class="nav-icon fas fa-plus-circle"></i>
+          <p>Generate Ticket</p>
+        </a>
+      </li>
+
+      <li class="nav-item">
+        <a href="<?= base_url('TRS/list') ?>" class="nav-link">
+          <i class="nav-icon fas fa-list"></i>
+          <p>My Tickets</p>
+        </a>
+      </li>
+    <?php } ?>
+
+    <!-- DEVELOPER MENU -->
+    <?php if ($role_id == 2) { ?>
+      <li class="nav-item">
+        <a href="<?= base_url('TRS/list') ?>" class="nav-link">
+          <i class="nav-icon fas fa-ticket-alt"></i>
+          <p>All Tickets</p>
+        </a>
+      </li>
+
+      <li class="nav-item">
+        <a href="<?= base_url('TRS/my_tickets') ?>" class="nav-link">
+          <i class="nav-icon fas fa-user-check"></i>
+          <p>My Accepted Tickets</p>
+        </a>
+      </li>
+    <?php } ?>
+
+    <!-- IT HEAD MENU -->
+    <?php if ($role_id == 3) { ?>
+      <li class="nav-item">
+        <a href="<?= base_url('TRS/list') ?>" class="nav-link">
+          <i class="nav-icon fas fa-ticket-alt"></i>
+          <p>All Tickets</p>
+        </a>
+      </li>
+
+      <li class="nav-item">
+        <a href="<?= base_url('TRS/developer_performance') ?>" class="nav-link">
+          <i class="nav-icon fas fa-chart-bar"></i>
+          <p>Developer Performance</p>
+        </a>
+      </li>
+    <?php } ?>
+
+    <?php if ($this->session->userdata('role_id') == 3) { ?>
+<li class="nav-item">
+    <a href="<?= base_url('TRS/add_user') ?>" class="nav-link">
+        <i class="nav-icon fas fa-user-plus"></i>
+        <p>Add User</p>
+    </a>
+</li>
+
+<li class="nav-item">
+    <a href="<?= base_url('TRS/user_list') ?>" class="nav-link">
+        <i class="nav-icon fas fa-users"></i>
+        <p>Manage Users</p>
+    </a>
+</li>
+<?php } ?>
+
+
+    <!-- LOGOUT (ALL ROLES) -->
+    <li class="nav-item mt-3">
+      <a href="<?= base_url('index.php/Auth/logout') ?>" class="nav-link text-danger">
+        <i class="nav-icon fas fa-sign-out-alt"></i>
+        <p>Logout</p>
+      </a>
+    </li>
+
+  </ul>
+</nav>
+
     </div>
     <!-- /.sidebar -->
   </aside>

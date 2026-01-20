@@ -44,17 +44,41 @@ public function get_user_by_token($token)
 
 public function update_password_by_token($token, $password)
 {
-    $this->db->where('reset_token', $token);
+    // check token validity
+    $user = $this->db
+        ->where('reset_token', $token)
+        ->where('token_expiry >=', date('Y-m-d H:i:s'))
+        ->get('users')
+        ->row();
+
+    if (!$user) {
+        return false; // invalid or expired token
+    }
+
+    // update password
+    $this->db->where('user_id', $user->user_id);
     $this->db->update('users', [
         'password'     => password_hash($password, PASSWORD_DEFAULT),
         'reset_token'  => NULL,
         'token_expiry' => NULL
     ]);
 
-    return $this->db->affected_rows(); // 1 = success, 0 = fail
+    return true;
 }
 
 
+public function insert_user($data)
+    {
+        return $this->db->insert('users', $data);
+    }
+
+    public function get_all_staff()
+    {
+        return $this->db
+            ->where_in('role_id', [2,3])
+            ->get('users')
+            ->result_array();
+    }
 
 }
 

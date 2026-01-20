@@ -16,12 +16,12 @@ $route['check']='Auth/check_mail';
 $route['reset-password/(:any)'] = 'Auth/form/$1';
 $route['Modify']='Auth/Modify_pass';
 /* DASHBOARD */
-$route['dashboard'] = 'Dashboard_controller/index';
+$route['dashboard'] = 'TRS/dashboard';
 
 
 
 /* TRS MODULE */
-$route['List']          = 'TRS/list';
+$route['list']          = 'TRS/list';
 $route['add']           = 'TRS/add';
 $route['edit/(:num)']   = 'TRS/edit/$1';
 $route['delete/(:num)'] = 'TRS/delete/$1';

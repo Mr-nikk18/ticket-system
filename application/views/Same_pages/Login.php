@@ -19,9 +19,9 @@
 
 
   <body class="hold-transition login-page">
-<?php if ($this->session->flashdata('error')): ?>
+<?php if ($this->session->flashdata('failed')): ?>
     <div class="alert alert-danger alert-dismissible fade show text-center flash-msg" role="alert">
-        <?= $this->session->flashdata('error'); ?>
+        <?= $this->session->flashdata('failed'); ?>
     </div>
 <?php endif; ?>
 
