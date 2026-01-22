@@ -1,6 +1,7 @@
-<?php
-$this->load->view('Layout/Header');
+<?php 
+$this->load->view('layout/Header');
 ?>
+
 
 <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
@@ -9,7 +10,7 @@ $this->load->view('Layout/Header');
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <h1>Developer List</h1>
+            <h1>Validation</h1>
           </div>
           <div class="col-sm-6">
             <ol class="breadcrumb float-sm-right">
@@ -35,34 +36,28 @@ $this->load->view('Layout/Header');
               <!-- /.card-header -->
               <!-- form start -->
 
-<table class="table table-bordered">
-<tr>
-<th>No.</th>
-<th>Name</th>
-<th>Username</th>
-<th>Role</th>
-<th>Status</th>
-<th>Action</th>
-</tr>
-  <?php $n=1; ?>
-<?php foreach ($users as $u) { ?>
 
-<tr>
+<form method="post" action="<?= base_url('TRS/do_reassign') ?>">
 
-<td><?= $n ?></td>
-<td><?= $u['name'] ?></td>
-<td><?= $u['user_name'] ?></td>
-<td><?= $u['role_id'] == 2 ? 'Developer' : 'IT Head' ?></td>
-<td><?= $u['status'] ?></td>
-<td> <a href="<?= base_url('TRS/edit_userlist/'.$u['user_id'])?>" class="btn btn-sm btn-primary mb-1">Edit</a> <br>
-     <a href="<?= base_url('TRS/delete_userlist/'.$u['user_id']) ?>" class="btn btn-sm btn-danger mb-1" >Delete</a>
-</td>
+    <input type="hidden" name="ticket_id" value="<?= $ticket_id ?>">
 
-</tr>
-<?php $n++; ?>
-<?php } ?>
+<div class="form-group">
+        <label>Select New Developer</label>
+        <select name="developer_id" class="form-control" required>
+            <option value="">-- Select Developer --</option>
+            <?php foreach ($developers as $dev): ?>
+                <option value="<?= $dev['user_id'] ?>">
+                    <?= $dev['user_name'] ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
 
-</table>
+    <button type="submit" class="btn btn-primary">
+        Reassign Ticket
+    </button>
+
+</form>
 
 
 
@@ -89,3 +84,8 @@ $this->load->view('Layout/Header');
   <?php 
 $this->load->view('layout/Footer');
 ?>
+
+
+
+
+    

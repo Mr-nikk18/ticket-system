@@ -5,6 +5,7 @@ $this->load->view('Layout/Header');
 
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
+    <div class="ajax">
     <!-- Content Header (Page header) -->
     <section class="content-header">
       <div class="container-fluid">
@@ -111,12 +112,14 @@ $user_id = $this->session->userdata('user_id');
 <!-- ================= USER ================= -->
 <?php if ($role_id == 1) { ?>
 
+    <?php
+    $reopen = $this->session->userdata('reopen_edit_allowed');
+    ?>
+
+    <!-- 🟡 RESOLVED → ASK CONFIRMATION -->
     <?php if ($value['status'] == 'resolved') { ?>
 
-        <!-- FIRST: only confirmation -->
-        <span class="text-info d-block mb-1 mt-1">
-            Is issue solved?
-        </span>
+        <span class="text-info d-block mb-1">Is issue solved?</span>
 
         <a href="<?= base_url('TRS/confirm_ticket/'.$value['ticket_id'].'/yes') ?>"
            class="btn btn-sm btn-success mb-1">Yes</a>
@@ -124,11 +127,11 @@ $user_id = $this->session->userdata('user_id');
         <a href="<?= base_url('TRS/confirm_ticket/'.$value['ticket_id'].'/no') ?>"
            class="btn btn-sm btn-warning mb-1">No</a>
 
-    <?php } elseif ($value['status'] == 'open' || $value['status'] == 'in_progress') { ?>
+    <!-- 🔵 OPEN & NOT ASSIGNED -->
+    <?php } elseif ($value['status'] == 'open' && $value['assigned_engineer_id'] == null) { ?>
 
-        <!-- AFTER NO or normal open → allow edit/delete -->
         <a href="<?= base_url('TRS/edit/'.$value['ticket_id']) ?>"
-           class="btn btn-sm btn-primary mb-1">Edit</a><br>
+           class="btn btn-sm btn-primary mb-1">Edit</a>
 
         <a href="<?= base_url('TRS/delete/'.$value['ticket_id']) ?>"
            class="btn btn-sm btn-danger mb-1"
@@ -136,9 +139,20 @@ $user_id = $this->session->userdata('user_id');
            Delete
         </a>
 
+    <!-- 🟢 REOPENED (IN_PROGRESS WITH FLAG) → ALLOW ONLY EDIT -->
+    <?php } elseif (
+        $value['status'] == 'in_progress' &&
+        is_array($reopen) &&
+        isset($reopen[$value['ticket_id']]) &&
+        $reopen[$value['ticket_id']] === true
+    ) { ?>
+
+        <a href="<?= base_url('TRS/edit/'.$value['ticket_id']) ?>"
+           class="btn btn-sm btn-primary mb-1">Edit</a>
+
+    <!-- 🔴 ALL OTHER CASES -->
     <?php } else { ?>
 
-        <!-- closed -->
         <span class="badge badge-secondary">No Action</span>
 
     <?php } ?>
@@ -173,7 +187,7 @@ $user_id = $this->session->userdata('user_id');
         </a>
 
     <?php } else { ?>
-        <span class="badge badge-secondary">Assigned</span>
+        <span class="badge badge-secondary">No action</span>
     <?php } ?>
 
 <?php } ?>
@@ -221,9 +235,18 @@ $user_id = $this->session->userdata('user_id');
       </div>
       <!-- /.container-fluid -->
     </section>
+</div>
     <!-- /.content -->
   </div>
   <!-- /.content-wrapper -->
+
+
+  <script>
+    $('')
+    $('#ajax').load("<?= base_url('TRS/') ?>")
+
+
+    </script>
 
 <?php
 $this->load->view('Layout/Footer');

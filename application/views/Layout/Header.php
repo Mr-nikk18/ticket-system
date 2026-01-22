@@ -64,9 +64,6 @@ $username = $this->session->userdata('username');
       <li class="nav-item d-none d-sm-inline-block">
         <a href="<?= base_url('TRS/Dashboard') ?>" class="nav-link">Home</a>
       </li>
-      <li class="nav-item d-none d-sm-inline-block">
-        <a href="#" class="nav-link">Contact</a>
-      </li>
     </ul>
 
     <!-- Right navbar links -->
@@ -280,9 +277,16 @@ $username = $this->session->userdata('username');
       </li>
 
       <li class="nav-item">
-        <a href="<?= base_url('TRS/developer_performance') ?>" class="nav-link">
+        <a href="<?= base_url('Developer/developer_performance') ?>" class="nav-link">
           <i class="nav-icon fas fa-chart-bar"></i>
           <p>Developer Performance</p>
+        </a>
+      </li>
+
+      <li class="nav-item">
+        <a href="<?= base_url('TRS/ticket') ?>" class="nav-link">
+          <i class="nav-icon fas fa-chart-bar"></i>
+          <p>Ticket History</p>
         </a>
       </li>
     <?php } ?>

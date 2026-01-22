@@ -26,6 +26,12 @@
         <?= $this->session->flashdata('success'); ?>
     </div>
 <?php endif; ?>
+<?php
+$old = $this->session->flashdata('old_input');
+?>
+
+
+
 
 <div class="register-box">
   <div class="register-logo">
@@ -36,22 +42,24 @@
     <div class="card-body register-card-body">
       <p class="login-box-msg">Register a new membership</p>
 
-      <form action="<?= base_url('index.php/Auth/setdataregistration') ?>" method="post">
+      <form action="<?= base_url('Auth/setdataregistration') ?>" method="post">
       <input type="hidden" name="role_id" value="1">
 
 
         <div class="input-group mb-3">
         
-        <div class="input-group mb-3">
-          <input type="text" class="form-control" placeholder="user name" name="user_name">
+    
+      
+          <input type="text" class="form-control" placeholder="Full name" name="name" value="<?= isset($old['name']) ? $old['name'] : '' ?>" >
           <div class="input-group-append">
             <div class="input-group-text">
               <span class="fas fa-user"></span>
             </div>
           </div>
         </div>
-      
-          <input type="text" class="form-control" placeholder="Full name" name="name">
+
+            <div class="input-group mb-3">
+          <input type="text" class="form-control" placeholder="user name" name="user_name"    value="<?= isset($old['user_name']) ? $old['user_name'] : '' ?>" >
           <div class="input-group-append">
             <div class="input-group-text">
               <span class="fas fa-user"></span>
@@ -60,7 +68,7 @@
         </div>
      
         <div class="input-group mb-3">
-          <input type="email" class="form-control" placeholder="Email" name="email">
+          <input type="email" class="form-control" placeholder="Email" name="email" value="<?= isset($old['email']) ? $old['email'] : '' ?>" >
           <div class="input-group-append">
             <div class="input-group-text">
               <span class="fas fa-envelope"></span>
@@ -68,7 +76,15 @@
           </div>
         </div>
         <div class="input-group mb-3">
-          <input type="text" class="form-control" placeholder="Department" name="department">
+          <input type="text" class="form-control" placeholder="company_name" name="company_name" value="<?= isset($old['company_name']) ? $old['company_name'] : '' ?>" >
+          <div class="input-group-append">
+            <div class="input-group-text">
+              <span class="fas fa-envelope"></span>
+            </div>
+          </div>
+        </div>
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" placeholder="Department" name="department" value="<?= isset($old['department']) ? $old['department'] : '' ?>" >
           <div class="input-group-append">
             <div class="input-group-text">
               <span class="fas fa-envelope"></span>
@@ -132,5 +148,15 @@
 <script src="<?= base_url() ?>assets/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
 <!-- AdminLTE App -->
 <script src="<?= base_url() ?>assets/dist/js/adminlte.min.js"></script>
+
+
+<script>
+    setTimeout(function () {
+        document.querySelectorAll('.flash-msg').forEach(function (el) {
+            el.classList.remove('show');
+            el.classList.add('hide');
+        });
+    }, 3000); // 3 seconds
+</script>
 </body>
 </html>

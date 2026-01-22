@@ -34,6 +34,7 @@ $this->load->view('Layout/Header');
 
 <!-- Main content -->
 <section class="content">
+  <div class="ajax">
   <div class="container-fluid">
 
     <!-- Small boxes (Stat box) -->
@@ -187,7 +188,7 @@ $this->load->view('Layout/Header');
 
       </div>
     </div>
-
+  </div>
   </div>
 </section>
 <!-- /.content -->
@@ -195,6 +196,8 @@ $this->load->view('Layout/Header');
     <!-- /.content -->
   </div>
   <!-- /.content-wrapper -->
+
+
 
   <?php
 $this->load->view('Layout/Footer');

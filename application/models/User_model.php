@@ -76,9 +76,34 @@ public function insert_user($data)
     {
         return $this->db
             ->where_in('role_id', [2,3])
+            ->order_by("FIELD(role_id, 3, 2)") // 👈 IT Head first, then Developer
             ->get('users')
             ->result_array();
     }
+
+public function get_user_staff($user_id)
+{
+    return $this->db
+        ->where_in('role_id', [2, 3])   
+        ->where('user_id',$user_id)
+        ->get('users')
+        ->row_array();
+
+       
+}
+
+public function update_user_stuff($user_id,$data){
+ return $this->db->where('user_id',$user_id)->update('users',$data);
+ 
+}
+
+public function delete_user($user_id)
+{
+    return $this->db
+        ->where('user_id', $user_id)
+        ->delete('users');
+}
+
 
 }
 

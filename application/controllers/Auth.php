@@ -59,29 +59,40 @@ class Auth extends CI_Controller {
     {
         $this->load->view('Same_pages/Registration');
     }
-
 public function setdataregistration()
 {
-    // ✅ get password FIRST
     $password = $this->input->post('password');
     $confirm_password = $this->input->post('confirm_password');
 
-    // ❌ stop if mismatch
-    if ($confirm_password !== $password) {
-        $this->session->set_flashdata(
-            'failed',
-            'Password and Confirm Password do not match'
-        );
+    // ✅ store old form data EXCEPT password
+    $old_data = [
+        'name'      => $this->input->post('name'),
+        'user_name' => $this->input->post('user_name'),
+        'email'     => $this->input->post('email'),
+        'company_name'=>$this->input->post('company_name'),
+        'department'=> $this->input->post('department'),
+    ];
+
+
+
+    // ❌ password mismatch
+    if (empty($password) || empty($confirm_password) || $password !== $confirm_password){
+
+        $this->session->set_flashdata('failed', 'Password and Confirm Password do not match');
+
+        // ⭐ STORE OLD INPUT
+        $this->session->set_flashdata('old_input', $old_data);
+
         redirect('register');
-        return; // ⛔ VERY IMPORTANT
+        return;
     }
 
-    // ✅ now prepare data
     $arr = [
-        'user_name' => $this->input->post('user_name', true),
         'name'      => $this->input->post('name', true),
+        'user_name' => $this->input->post('user_name', true),
         'email'     => $this->input->post('email', true),
-        'department' =>$this->input->post('department',true),
+        'company_name'=>$this->input->post('company_name',true),
+        'department'=> $this->input->post('department', true),
         'password'  => password_hash($password, PASSWORD_DEFAULT),
         'created_at'=> date('Y-m-d H:i:s')
     ];
@@ -93,9 +104,11 @@ public function setdataregistration()
         redirect('verify');
     } else {
         $this->session->set_flashdata('failed', 'Registration failed');
+        $this->session->set_flashdata('old_input', $old_data);
         redirect('register');
     }
 }
+
 
 
     public function logout()

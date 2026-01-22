@@ -12,13 +12,13 @@
 <div class="card-body">
 
 <div class="form-group">
-<label>User Name</label>
-<input type="text" name="user_name" class="form-control" required>
+<label>Full Name</label>
+<input type="text" name="name" class="form-control" required>
 </div>
 
 <div class="form-group">
-<label>Full Name</label>
-<input type="text" name="name" class="form-control" required>
+<label>User Name</label>
+<input type="text" name="user_name" class="form-control" required>
 </div>
 
 <div class="form-group">
@@ -29,6 +29,11 @@
 <div class="form-group">
 <label>Phone</label>
 <input type="text" name="phone" class="form-control">
+</div>
+
+<div class="form-group">
+<label>Company Name</label>
+<input type="text" name="company_name" class="form-control">
 </div>
 
 <div class="form-group">
