@@ -6,7 +6,7 @@
 
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">Ticket History</h3>
+          <h3 class="card-title"  style="text-align: center;">Ticket History</h3>
         </div>
 
         <div class="card-body table-responsive p-0">
@@ -42,50 +42,90 @@
 
                   <td><?= htmlspecialchars($latest['title']) ?></td>
 
-                  <td>
-                    <span class="badge badge-info">
-                      <?= ucfirst($latest['recent_status']) ?>
-                    </span>
-                  </td>
+                 <td>
+  <?php
+    $status = strtolower($latest['recent_status']);
+
+    switch ($status) {
+      case 'open':
+        $badge = 'badge-success';   // green
+        break;
+
+      case 'in_progress':
+      case 'in process':
+        $badge = 'badge-warning';   // yellow
+        break;
+
+      case 'closed':
+        $badge = 'badge-danger';    // red
+        break;
+
+      case 'resolved':
+        $badge = 'badge-primary';   // blue
+        break;
+
+      default:
+        $badge = 'badge-secondary'; // grey
+    }
+  ?>
+
+  <span class="badge <?= $badge ?>">
+    <?= ucfirst($latest['recent_status']) ?>
+  </span>
+</td>
+
 
                   <td><?= htmlspecialchars($latest['ticket_owner']) ?></td>
 
                   <td><?= $latest['now_handled_by'] ?: 'Not Assigned' ?></td>
 
-                  <td>
-                    <ul class="mb-0 pl-3">
-                      <?php foreach ($rows as $row): ?>
-                        <li>
-                          <?php
-                          switch ($row['action_type']) {
-                            case 'assign':
-                              echo "<b>{$row['action_by']}</b> assigned to <b>{$row['assigned_to_name']}</b>";
-                              break;
+                <td>
+  <ul class="mb-0 pl-3">
+    <?php foreach ($rows as $row): ?>
+      <li class="mb-1">
+        <?php
+        switch ($row['action_type']) {
 
-                            case 'accept':
-                              echo "<b>{$row['action_by']}</b> accepted the ticket";
-                              break;
+          case 'assign':
+            echo "<b>{$row['action_by']}</b> assigned to <b>{$row['assigned_to_name']}</b>";
+            break;
 
-                            case 'leave':
-                              echo "<b>{$row['action_by']}</b> left the ticket";
-                              break;
+          case 'accept':
+            echo "<b>{$row['action_by']}</b> accepted the ticket";
+            break;
 
-                            case 'reassign':
-                              echo "<b>{$row['action_by']}</b> reassigned to <b>{$row['assigned_to_name']}</b>";
-                              break;
+          case 'leave':
+            echo "<b>{$row['action_by']}</b> left the ticket";
+            break;
 
-                            default:
-                              echo htmlspecialchars($row['remarks']);
-                          }
-                          ?>
-                          <br>
-                          <small class="text-muted">
-                            <?= date('d M Y, H:i', strtotime($row['created_at'])) ?>
-                          </small>
-                        </li>
-                      <?php endforeach; ?>
-                    </ul>
-                  </td>
+          case 'reassign':
+            echo "<b>{$row['action_by']}</b> reassigned to <b>{$row['assigned_to_name']}</b>";
+            break;
+        }
+
+        // ✅ SHOW REASON (ONLY ONCE)
+        if (!empty($row['remarks'])) {
+          echo "<br><span class='text-muted'>";
+
+          if (stripos($row['remarks'], 'Reason:') !== false) {
+            echo nl2br(htmlspecialchars($row['remarks']));
+          } else {
+            echo "Reason: " . htmlspecialchars($row['remarks']);
+          }
+
+          echo "</span>";
+        }
+        ?>
+
+        <br>
+        <small class="text-muted">
+          <?= date('d M Y, H:i', strtotime($row['created_at'])) ?>
+        </small>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+</td>
+
 
                   <td>
                     <?= date('d M Y, H:i', strtotime($latest['created_at'])) ?>

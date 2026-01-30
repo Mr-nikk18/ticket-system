@@ -80,8 +80,111 @@ $username = $this->session->userdata('username');
   border-left: 4px solid #007bff !important;
 }
 </style>
+<style>
+.approval-history {
+  width: 100%;
+}
+
+/* ONE ROW */
+.approval-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+/* LEFT DATE (RED BOX) */
+.approval-date {
+  background: #59e83c;
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 3px;
+  min-width: 155px;
+  text-align: center;
+  margin-right: 12px;
+  line-height: 1.3;
+}
+
+/* RIGHT GREY BOX */
+.approval-box {
+  background: #f7f7f7;
+  border: 1px solid #dcdcdc;
+  border-radius: 4px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+/* TOP LINE */
+.approval-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.approval-user {
+  font-weight: 600;
+  color: #007bff;
+  font-size: 14px;
+}
+
+/* SMALL STATUS TAG (RIGHT) */
+.approval-status {
+  background: #28a745;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: capitalize;
+}
+
+/* ACTION TEXT */
+.approval-text {
+  font-size: 14px;
+  color: #333;
+}
+
+/* REMARKS */
+.approval-remarks {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #555;
+}
+
+/* Timeline vertical line */
+.with-line {
+  position: relative;
+}
+
+/* Grey vertical line */
+.with-line::before {
+  content: '';
+  position: absolute;
+  left: 78px;               /* 👈 aligns with date badge center */
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #dee2e6;
+}
+
+/* Each row */
+.approval-row {
+  position: relative;
+}
+
+/* Stop line after last item */
+.approval-row:last-child::after {
+  content: '';
+  position: absolute;
+  left: 78px;
+  bottom: 0;
+  width: 2px;
+  height: 50%;
+  background: #fff; /* hides remaining line */
+}
 
 
+</style>
 
 </head>
 

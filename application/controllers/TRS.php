@@ -113,20 +113,20 @@ class TRS extends My_Controller
     }
 
     public function list_ajax($status = null)
-{
-    $this->load->model('TRS_model');
+    {
+        $this->load->model('TRS_model');
 
-    $role_id = $this->session->userdata('role_id');
-    $user_id = $this->session->userdata('user_id');
+        $role_id = $this->session->userdata('role_id');
+        $user_id = $this->session->userdata('user_id');
 
-    if ($role_id == 1) {
-        $data = $this->TRS_model->get_user_tickets($user_id, $status);
-    } else {
-        $data = $this->TRS_model->get_all_tickets($status);
+        if ($role_id == 1) {
+            $data = $this->TRS_model->get_user_tickets($user_id, $status);
+        } else {
+            $data = $this->TRS_model->get_all_tickets($status);
+        }
+
+        echo json_encode(['data' => $data]);
     }
-
-    echo json_encode(['data' => $data]);
-}
 
 
 
@@ -137,9 +137,9 @@ class TRS extends My_Controller
         $this->load->view('Users/Add_ticket');
     }
 
-public function add()
+    public function add()
     {
-    
+
         $this->load->model('TRS_model');
 
         $this->TRS_model->insert_ticket([
@@ -152,63 +152,63 @@ public function add()
         redirect('TRS/list');
     }
 
-    
 
-public function add_ajax()
-{
-    $this->load->model('TRS_model');
 
-    $insert = $this->TRS_model->insert_ticket([
-        'user_id'     => $this->session->userdata('user_id'),
-        'title'       => $this->input->post('title', true),
-        'description' => $this->input->post('description', true),
-        'status'      => 'open'
-    ]);
+    public function add_ajax()
+    {
+        $this->load->model('TRS_model');
 
-    if ($insert) {
-        // ✅ flashdata for page reload
-        $this->session->set_flashdata('success', 'Ticket added successfully');
+        $insert = $this->TRS_model->insert_ticket([
+            'user_id'     => $this->session->userdata('user_id'),
+            'title'       => $this->input->post('title', true),
+            'description' => $this->input->post('description', true),
+            'status'      => 'open'
+        ]);
 
-        // ✅ ajax response
-        echo json_encode(['status' => true]);
-    } else {
-        $this->session->set_flashdata('failed','Unable to move forward');
-        echo json_encode(['status' => false]);
+        if ($insert) {
+            // ✅ flashdata for page reload
+            $this->session->set_flashdata('success', 'Ticket added successfully');
+
+            // ✅ ajax response
+            echo json_encode(['status' => true]);
+        } else {
+            $this->session->set_flashdata('failed', 'Unable to move forward');
+            echo json_encode(['status' => false]);
+        }
     }
-}
 
 
 
     /* ================= ACCEPT / LEAVE ================= */
 
-   public function accept_ticket($ticket_id)
-{
-    if (!in_array($this->session->userdata('role_id'), [2, 3])) {
-        show_error('Unauthorized');
+    public function accept_ticket($ticket_id)
+    {
+        if (!in_array($this->session->userdata('role_id'), [2, 3])) {
+            show_error('Unauthorized');
+        }
+
+        $this->load->model('TRS_model');
+
+        $user_id = $this->session->userdata('user_id');
+
+        // 1️⃣ Update ticket
+        $this->TRS_model->update_ticket($ticket_id, [
+            'assigned_engineer_id' => $user_id,
+            'status'               => 'in_progress'
+        ]);
+
+        // 2️⃣ Insert history (ACCEPT)
+        $this->TRS_model->insert_assignment_history([
+            'ticket_id'   => $ticket_id,
+            'action_type' => 'accept',
+            'assigned_to' => $user_id,
+            'assigned_by' => $user_id,
+            'remarks'     => 'Ticket accepted by developer',
+            'created_at'  => date('Y-m-d H:i:s')
+        ]);
+
+        redirect('TRS/my_tickets');
     }
-
-    $this->load->model('TRS_model');
-
-    $user_id = $this->session->userdata('user_id');
-
-    // 1️⃣ Update ticket
-    $this->TRS_model->update_ticket($ticket_id, [
-        'assigned_engineer_id' => $user_id,
-        'status'               => 'in_progress'
-    ]);
-
-    // 2️⃣ Insert history (ACCEPT)
-    $this->TRS_model->insert_assignment_history([
-        'ticket_id'   => $ticket_id,
-        'action_type' => 'accept',
-        'assigned_to' => $user_id,
-        'assigned_by' => $user_id,
-        'remarks'     => 'Ticket accepted by developer',
-        'created_at'  => date('Y-m-d H:i:s')
-    ]);
-
-    redirect('TRS/my_tickets');
-}
 
 
     public function leave_ticket($ticket_id)
@@ -244,7 +244,7 @@ public function add_ajax()
 
     /* ================= EDIT ================= */
 
-    
+
     public function edit($ticket_id)
     {
         $this->load->model('TRS_model');
@@ -294,116 +294,115 @@ public function add_ajax()
     }
 
 
-public function edit_ajax()
-{
-    $this->load->model('TRS_model');
-   $ticket_id=$this->input->post('ticket_id');
+    public function edit_ajax()
+    {
+        $this->load->model('TRS_model');
+        $ticket_id = $this->input->post('ticket_id');
 
-    $role_id = $this->session->userdata('role_id');
-    $ticket  = $this->TRS_model->get_data_by_id($ticket_id);
-    $developers=$this->TRS_model->get_all_developers();
+        $role_id = $this->session->userdata('role_id');
+        $ticket  = $this->TRS_model->get_data_by_id($ticket_id);
+        $developers = $this->TRS_model->get_all_developers();
 
-    if (!$ticket) {
-        echo json_encode(['status' => false, 'msg' => 'Ticket not found']);
-        exit;
-    }
-
-    /* ============== USER RULES ============== */
-    if ($role_id == 1) {
-
-        if (in_array($ticket['status'], ['closed', 'resolved'])) {
-            echo json_encode(['status' => false, 'msg' => 'Unauthorized']);
+        if (!$ticket) {
+            echo json_encode(['status' => false, 'msg' => 'Ticket not found']);
             exit;
         }
 
-        if ($ticket['status'] == 'open' && $ticket['assigned_engineer_id'] != null) {
-            echo json_encode(['status' => false, 'msg' => 'Unauthorized']);
-            exit;
-        }
+        /* ============== USER RULES ============== */
+        if ($role_id == 1) {
 
-        if ($ticket['status'] == 'in_progress') {
-            $reopen = $this->session->userdata('reopen_edit_allowed');
-
-            if (!is_array($reopen) || !isset($reopen[$ticket_id]) || $reopen[$ticket_id] !== true) {
+            if (in_array($ticket['status'], ['closed', 'resolved'])) {
                 echo json_encode(['status' => false, 'msg' => 'Unauthorized']);
                 exit;
             }
-        }
-    }
 
-    /* ============== SEND DATA ============== */
-    echo json_encode([
-        'status' => true,
-        'data'   => $ticket,
-        'developers' =>$developers
-    ]);
-    exit;
-}
+            if ($ticket['status'] == 'open' && $ticket['assigned_engineer_id'] != null) {
+                echo json_encode(['status' => false, 'msg' => 'Unauthorized']);
+                exit;
+            }
 
-public function update_ajax()
-{
-    $ticket_id = $this->input->post('ticket_id');
-    $role_id   = $this->session->userdata('role_id');
+            if ($ticket['status'] == 'in_progress') {
+                $reopen = $this->session->userdata('reopen_edit_allowed');
 
-    if (!$ticket_id) {
-        echo json_encode([
-            'status' => false,
-            'msg' => 'Invalid ticket'
-        ]);
-        return;
-    }
-
-    $data = [];
-
-    // USER
-    if ($role_id == 1) {
-        $data['title']       = $this->input->post('title', true);
-        $data['description'] = $this->input->post('description', true);
-    }
-
-    // DEVELOPER
-    if ($role_id == 2) {
-        $data['status'] = $this->input->post('status');
-    }
-
-  // ADMIN / IT HEAD
-if ($role_id == 3) {
-
-    $assigned_engineer_id = $this->input->post('assigned_engineer_id');
-    $status               = $this->input->post('status');
-
-    $data['assigned_engineer_id'] = $assigned_engineer_id;
-
-    // 🔥 IMPORTANT BUSINESS RULE
-    if (!empty($assigned_engineer_id)) {
-
-        // agar assign hua hai aur status empty / open hai
-        if (empty($status) || $status == 'open') {
-            $data['status'] = 'in_progress';
-        } else {
-            $data['status'] = $status;
+                if (!is_array($reopen) || !isset($reopen[$ticket_id]) || $reopen[$ticket_id] !== true) {
+                    echo json_encode(['status' => false, 'msg' => 'Unauthorized']);
+                    exit;
+                }
+            }
         }
 
-    } else {
-        // assign nahi hua → jo status aaya wahi
-        $data['status'] = $status;
-    }
-}
-
-
-    if (empty($data)) {
+        /* ============== SEND DATA ============== */
         echo json_encode([
-            'status' => false,
-            'msg' => 'Nothing to update'
+            'status' => true,
+            'data'   => $ticket,
+            'developers' => $developers
         ]);
-        return;
+        exit;
     }
 
-    $this->load->model('TRS_model');
-    $this->TRS_model->update_ticket($ticket_id, $data);
+    public function update_ajax()
+    {
+        $ticket_id = $this->input->post('ticket_id');
+        $role_id   = $this->session->userdata('role_id');
 
-    echo json_encode(['status' => true]);
-}
+        if (!$ticket_id) {
+            echo json_encode([
+                'status' => false,
+                'msg' => 'Invalid ticket'
+            ]);
+            return;
+        }
+
+        $data = [];
+
+        // USER
+        if ($role_id == 1) {
+            $data['title']       = $this->input->post('title', true);
+            $data['description'] = $this->input->post('description', true);
+        }
+
+        // DEVELOPER
+        if ($role_id == 2) {
+            $data['status'] = $this->input->post('status');
+        }
+
+        // ADMIN / IT HEAD
+        if ($role_id == 3) {
+
+            $assigned_engineer_id = $this->input->post('assigned_engineer_id');
+            $status               = $this->input->post('status');
+
+            $data['assigned_engineer_id'] = $assigned_engineer_id;
+
+            // 🔥 IMPORTANT BUSINESS RULE
+            if (!empty($assigned_engineer_id)) {
+
+                // agar assign hua hai aur status empty / open hai
+                if (empty($status) || $status == 'open') {
+                    $data['status'] = 'in_progress';
+                } else {
+                    $data['status'] = $status;
+                }
+            } else {
+                // assign nahi hua → jo status aaya wahi
+                $data['status'] = $status;
+            }
+        }
+
+
+        if (empty($data)) {
+            echo json_encode([
+                'status' => false,
+                'msg' => 'Nothing to update'
+            ]);
+            return;
+        }
+
+        $this->load->model('TRS_model');
+        $this->TRS_model->update_ticket($ticket_id, $data);
+
+        echo json_encode(['status' => true]);
+    }
 
     public function update($ticket_id)
     {
@@ -660,17 +659,17 @@ if ($role_id == 3) {
 
 
         // password update only if entered
-          $password = trim($this->input->post('password'));
-    if ($password !== '') {
-        $data['password'] = password_hash($password, PASSWORD_DEFAULT);
-    }
+        $password = trim($this->input->post('password'));
+        if ($password !== '') {
+            $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+        }
         $this->User_model->update_user_stuff($user_id, $data);
         redirect('TRS/User_list');
     }
 
     public function ticket()
     {
-$ticket_id=$this->input->post('ticket_id');
+        $ticket_id = $this->input->post('ticket_id');
 
         $this->load->model('Ticket_model');
         $data['history'] = $this->Ticket_model->TicketHistory($ticket_id);
@@ -690,89 +689,142 @@ $ticket_id=$this->input->post('ticket_id');
 
         $this->load->view('Users/reassign_form', $data);
     }
-   public function do_reassign()
-{
-    // admin (3) OR developer (2)
-    if (!in_array($this->session->userdata('role_id'), [2, 3])) {
-        show_error('Unauthorized');
+    public function do_reassign()
+    {
+        // admin (3) OR developer (2)
+        if (!in_array($this->session->userdata('role_id'), [2, 3])) {
+            show_error('Unauthorized');
+        }
+
+        $ticket_id  = $this->input->post('ticket_id');
+        $new_dev_id = $this->input->post('developer_id');
+        $actor_id   = $this->session->userdata('user_id');
+        $role_id    = $this->session->userdata('role_id');
+
+        if (!$ticket_id || !$new_dev_id) {
+            show_error('Invalid request');
+        }
+
+        // 1️⃣ Update ticket
+        $this->db->where('ticket_id', $ticket_id)
+            ->update('tickets', [
+                'assigned_engineer_id' => $new_dev_id,
+                'status'               => 'in_progress'
+            ]);
+
+        // 2️⃣ History insert (REASSIGN)
+        $this->db->insert('ticket_assignment_history', [
+            'ticket_id'   => $ticket_id,
+            'action_type' => 'reassign',
+            'assigned_to' => $new_dev_id,
+            'assigned_by' => $actor_id,
+            'remarks'     => ($role_id == 3)
+                ? 'Ticket reassigned by IT Head'
+                : 'Ticket reassigned by developer',
+            'created_at'  => date('Y-m-d H:i:s')
+        ]);
+
+        $this->session->set_flashdata('success', 'Ticket reassigned successfully');
+        redirect('TRS/ticket');
     }
 
-    $ticket_id  = $this->input->post('ticket_id');
-    $new_dev_id = $this->input->post('developer_id');
-    $actor_id   = $this->session->userdata('user_id');
-    $role_id    = $this->session->userdata('role_id');
+    public function do_reassign_ajax()
+    {
+        // Admin (3) OR Developer (2) only
+        if (!in_array($this->session->userdata('role_id'), [2, 3])) {
+            show_error('Unauthorized');
+        }
 
-    if (!$ticket_id || !$new_dev_id) {
-        show_error('Invalid request');
-    }
+        $ticket_id  = $this->input->post('ticket_id');
+        $new_dev_id = $this->input->post('assigned_engineer_id');
+        $reason     = trim($this->input->post('reason'));
+        $actor_id   = $this->session->userdata('user_id');
+        $role_id    = $this->session->userdata('role_id');
 
-    // 1️⃣ Update ticket
-    $this->db->where('ticket_id', $ticket_id)
-        ->update('tickets', [
+        // ❌ self assign not allowed
+        if ($new_dev_id == $actor_id) {
+            echo json_encode([
+                'status' => false,
+                'msg' => 'You cannot reassign ticket to yourself'
+            ]);
+            return;
+        }
+
+        // ❌ reason mandatory
+        if ($reason === '') {
+            echo json_encode([
+                'status' => false,
+                'msg' => 'Reason is required for reassign'
+            ]);
+            return;
+        }
+
+        $this->load->model('TRS_model');
+
+        // 1️⃣ Update ticket
+        $this->TRS_model->update_ticket($ticket_id, [
             'assigned_engineer_id' => $new_dev_id,
             'status'               => 'in_progress'
         ]);
 
-    // 2️⃣ History insert (REASSIGN)
-    $this->db->insert('ticket_assignment_history', [
-        'ticket_id'   => $ticket_id,
-        'action_type' => 'reassign',
-        'assigned_to' => $new_dev_id,
-        'assigned_by' => $actor_id,
-        'remarks'     => ($role_id == 3)
+        // 🔹 system message
+        $systemRemark = ($role_id == 3)
             ? 'Ticket reassigned by IT Head'
-            : 'Ticket reassigned by developer',
-        'created_at'  => date('Y-m-d H:i:s')
-    ]);
+            : 'Ticket reassigned by Developer';
 
-    $this->session->set_flashdata('success', 'Ticket reassigned successfully');
-    redirect('TRS/ticket');
-}
+        // 2️⃣ Insert history (SYSTEM + USER reason)
+        $this->TRS_model->insert_reassignment_history([
+            'ticket_id'   => $ticket_id,
+            'action_type' => 'reassign',
+            'assigned_to' => $new_dev_id,
+            'assigned_by' => $actor_id,
+            'remarks'     => $systemRemark . "\nReason: " . $reason,
+            'created_at'  => date('Y-m-d H:i:s')
+        ]);
 
-public function do_reassign_ajax()
-{
-    // Admin (3) OR Developer (2) only
-    if (!in_array($this->session->userdata('role_id'), [2, 3])) {
-        show_error('Unauthorized');
+        echo json_encode(['status' => true]);
     }
+    public function do_leave_ajax()
+    {
+        if (!in_array($this->session->userdata('role_id'), [2, 3])) {
+            show_error('Unauthorized');
+        }
 
-    $ticket_id  = $this->input->post('ticket_id');
-    $new_dev_id = $this->input->post('assigned_engineer_id');
-    $actor_id   = $this->session->userdata('user_id');
-    $role_id    = $this->session->userdata('role_id');
-$current_user = $this->session->userdata('user_id');
+        $ticket_id = $this->input->post('ticket_id');
+        $reason    = trim($this->input->post('reason'));
+        $user_id   = $this->session->userdata('user_id');
+        $role_id   = $this->session->userdata('role_id');
 
-if ($new_dev_id == $current_user) {
-    echo json_encode([
-        'status' => false,
-        'msg' => 'You cannot reassign ticket to yourself'
-    ]);
-    return;
-}
+        if ($reason === '') {
+            echo json_encode([
+                'status' => false,
+                'msg' => 'Reason is required'
+            ]);
+            return;
+        }
 
+        $this->load->model('TRS_model');
 
-    $this->load->model('TRS_model');
+        // 1️⃣ Update ticket
+        $this->TRS_model->update_ticket($ticket_id, [
+            'assigned_engineer_id' => NULL,
+            'status'               => 'open'
+        ]);
 
-    // 1️⃣ Update ticket
-    $this->TRS_model->update_ticket($ticket_id, [
-        'assigned_engineer_id' => $new_dev_id,
-        'status'               => 'in_progress'
-    ]);
+        // 2️⃣ History insert
+        $systemRemark = ($role_id == 3)
+            ? 'Ticket left by IT Head'
+            : 'Ticket left by Developer';
 
-    // 2️⃣ Insert history (REASSIGN)
-    $this->TRS_model->insert_reassignment_history([
-        'ticket_id'   => $ticket_id,
-        'action_type' => 'reassign',
-        'assigned_to' => $new_dev_id,
-        'assigned_by' => $actor_id,
-        'remarks'     => ($role_id == 3)
-            ? 'Ticket reassigned by IT Head'
-            : 'Ticket reassigned by developer',
-        'created_at'  => date('Y-m-d H:i:s')
-    ]);
+        $this->TRS_model->insert_reassignment_history([
+            'ticket_id'   => $ticket_id,
+            'action_type' => 'leave',
+            'assigned_to' => NULL,
+            'assigned_by' => $user_id,
+            'remarks'     => $systemRemark . "\nReason: " . $reason,
+            'created_at'  => date('Y-m-d H:i:s')
+        ]);
 
-    echo json_encode(['status' => true]);
-}
-
-
+        echo json_encode(['status' => true]);
+    }
 }

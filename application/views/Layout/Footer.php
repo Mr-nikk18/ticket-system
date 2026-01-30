@@ -191,7 +191,6 @@ function history(ticket_id){
     });
 };
 </script>
-
 <script>
 function assign(ticket_id) {
 
@@ -231,15 +230,7 @@ function assign(ticket_id) {
         }
     });
 }
-
-
-
-
-
 </script>
-
-
-
 <script>
 $(document).on('submit', '#assignForm', function(e){
   e.preventDefault();
@@ -305,14 +296,58 @@ function reassign(ticket_id) {
         }
     });
 }
-
-
-
-
-
 </script>
+<script>
+function openLeaveModal(ticket_id) {
+
+    $.ajax({
+        url: "<?= base_url('TRS/edit_ajax') ?>",
+        type: "POST",
+        data: { ticket_id: ticket_id },
+        dataType: "json",
+        success: function (res) {
+
+            if (!res.status) {
+                alert('Unable to fetch ticket details');
+                return;
+            }
+
+            const modal = $('#leaveModal');
+
+            modal.find('#leave_ticket_id').val(res.data.ticket_id);
+            modal.find('#leave_title').val(res.data.title);
+            modal.find('#leave_description').val(res.data.description);
+
+            modal.find('#leave_reason').val('');
+
+            modal.modal('show');
+        }
+    });
+}
 
 
+
+$(document).on('submit', '#leaveForm', function (e) {
+    e.preventDefault();
+    $.ajax({
+        url: "<?= base_url('TRS/do_leave_ajax') ?>",
+        type: "POST",
+        data: $(this).serialize(),
+        dataType: "json",
+        success: function (res) {
+
+            if (!res.status) {
+                alert(res.msg);
+                return;
+            }
+
+            $('#leaveModal').modal('hide');
+            alert('Ticket left successfully');
+            location.reload();
+        }
+    });
+});
+</script>
 
 <script>
 $(document).on('submit', '#reassignForm', function(e){

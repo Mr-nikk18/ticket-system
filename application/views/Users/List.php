@@ -207,8 +207,13 @@ $this->load->view('Layout/Header');
                               onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
 
                             <!-- LEAVE -->
-                            <a href="<?= base_url('TRS/leave_ticket/' . $value['ticket_id']) ?>"
-                              class="btn btn-sm btn-warning mb-1">Leave</a><br>
+                            <!-- LEAVE -->
+                          <button 
+                            class="btn btn-sm btn-warning mb-1"
+                            onclick="openLeaveModal(<?= $value['ticket_id'] ?>)">
+                            Leave
+                          </button>
+
 
                             <!-- HANDOVER / REASSIGN -->
                             <?php if ($value['assigned_engineer_id'] == $user_id) { ?>
@@ -457,7 +462,7 @@ $this->load->view('Layout/Header');
   <div class="modal-dialog modal-lg ">
     <div class="modal-content">
 
-      <div class="modal-header bg-primary text-white">
+      <div class="modal-header bg-dark text-white">
         <h5 class="modal-title">
           <i class="fas fa-history mr-2"></i>
           Ticket History
@@ -560,6 +565,13 @@ $this->load->view('Layout/Header');
               <option value="">-- Select Developer --</option>
             </select>
           </div>
+
+         <div class="form-group">
+            <label>Reason</label>
+            <textarea name="reason"  id="edit_reason" class="form-control" required></textarea>
+          </div>
+          
+
         </div>
 
         <div class="modal-footer justify-content-between">
@@ -572,6 +584,58 @@ $this->load->view('Layout/Header');
     </div>
   </div>
 </div>
+
+
+<div class="modal fade" id="leaveModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <form id="leaveForm">
+
+        <div class="modal-header">
+          <h5 class="modal-title">Leave Ticket</h5>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" name="ticket_id" id="leave_ticket_id">
+
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="leave_title" class="form-control" readonly>
+          </div>
+
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="leave_description" class="form-control" readonly></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Reason</label>
+            <textarea
+              name="reason"
+              id="leave_reason"
+              class="form-control"
+              required></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-warning">
+            Confirm Leave
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+</div>
+
+
 
 <?php
 $this->load->view('Layout/Footer');
