@@ -42,9 +42,13 @@
             </div>
           </div>
         </div>
+        <small id="passError" class="text-danger d-none">
+  Passwords do not match
+</small>
+
           <!-- /.col -->
           <div class="text-right">
-            <button type="submit" class="btn btn-primary btn-block float-right" >Update</button>
+            <button type="submit" class="btn btn-primary btn-block float-right" id="updateBtn" disabled>Update</button>
           </div>
           <!-- /.col -->
         </div>
@@ -63,5 +67,38 @@
 <script src="<?= base_url() ?>assets/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
 <!-- AdminLTE App -->
 <script src="<?= base_url() ?>assets/dist/js/adminlte.min.js"></script>
+
+
+
+<script>
+$(document).ready(function () {
+
+    function checkPasswordMatch() {
+        let password = $('input[name="password"]').val();
+        let confirm  = $('input[name="confirm_password"]').val();
+
+        if (password === '' || confirm === '') {
+            $('#updateBtn').prop('disabled', true);
+            $('#passError').addClass('d-none');
+            return;
+        }
+
+        if (password !== confirm) {
+            $('#updateBtn').prop('disabled', true);
+            $('#passError').removeClass('d-none');
+        } else {
+            $('#updateBtn').prop('disabled', false);
+            $('#passError').addClass('d-none');
+        }
+    }
+
+    $('input[name="password"], input[name="confirm_password"]').on('keyup', function () {
+        checkPasswordMatch();
+    });
+
+});
+</script>
+
+
 </body>
 </html>

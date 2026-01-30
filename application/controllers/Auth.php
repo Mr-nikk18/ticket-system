@@ -1,8 +1,10 @@
 <?php
+defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Auth extends CI_Controller {
+class Auth extends CI_Controller
+{
 
-   public function __construct()
+public function __construct()
     {
         parent::__construct();
         $this->load->library('session');
@@ -17,97 +19,199 @@ class Auth extends CI_Controller {
         }
     }
 
-
-    public function index()
+   public function index()
     {
         $this->load->view('Same_pages/Login');
     }
+    /* =======================
+       CHECK USERNAME (AJAX)
+       ======================= */
+    public function checkUsernameLogin()
+    {
+        $this->output->set_content_type('application/json');
 
+        $username = $this->input->post('username');
+        $this->load->model('User_model');
+
+        $user = $this->User_model->getUserByUsername($username);
+
+        echo json_encode([
+            'exists' => $user ? true : false
+        ]);
+    }
+
+    /* =======================
+       CHECK PASSWORD (AJAX)
+       ======================= */
+    public function checkPassword()
+    {
+        $this->output->set_content_type('application/json');
+
+        $username = $this->input->post('username');
+        $password = $this->input->post('password');
+
+        $this->load->model('User_model');
+        $user = $this->User_model->getUserByUsername($username);
+
+        if ($user && password_verify($password, $user->password)) {
+            echo json_encode(['valid' => true]);
+        } else {
+            echo json_encode(['valid' => false]);
+        }
+    }
+
+    /* =======================
+       NORMAL LOGIN (NON-AJAX)
+       ======================= */
     public function login_check()
     {
         $username = $this->input->post('user_name');
         $password = $this->input->post('password');
-    
+
         $this->load->model('User_model');
         $user = $this->User_model->get_user_by_username($username);
 
         if (!$user) {
-            $this->session->set_flashdata("failed","Username not found");
+            $this->session->set_flashdata('failed', 'User does not exist');
             redirect('verify');
         }
 
-        // ✅ Password check only once
-    if (!password_verify($password, $user->password)) {
-        $this->session->set_flashdata("failed","Invalid password");
-        redirect('verify');
+        if (!password_verify($password, $user->password)) {
+            $this->session->set_flashdata('failed', 'Invalid password');
+            redirect('verify');
+        }
+
+        $this->session->set_userdata([
+            'is_login'      => true,
+            'user_id'       => $user->user_id,
+            'username'      => $user->user_name,
+            'role_id'       => $user->role_id,
+            'last_activity' => time()
+        ]);
+
+        redirect('dashboard');
     }
 
-    // ✅ Session set properly
-    $this->session->set_userdata([
-        'is_login'      => true,
-        'user_id'       => $user->user_id,
-        'username'      => $user->user_name,
-        'role_id'       => $user->role_id,   // 🔥 IMPORTANT
-        'last_activity' => time()
-    ]);
 
-    // ✅ Role-based redirect
-    redirect('dashboard');
-}
 
     public function registration()
     {
         $this->load->view('Same_pages/Registration');
     }
-public function setdataregistration()
-{
-    $password = $this->input->post('password');
-    $confirm_password = $this->input->post('confirm_password');
 
-    // ✅ store old form data EXCEPT password
-    $old_data = [
-        'name'      => $this->input->post('name'),
-        'user_name' => $this->input->post('user_name'),
-        'email'     => $this->input->post('email'),
-        'company_name'=>$this->input->post('company_name'),
-        'department'=> $this->input->post('department'),
+    public function checkAvailability()
+{
+    $user_name = $this->input->post('user_name');
+    $email     = $this->input->post('email');
+
+    $this->load->model('User_model');
+
+    $response = [
+        'user_name' => 'ok',
+        'email'     => 'ok'
     ];
 
+    if (!empty($user_name) && $this->User_model->username_exists($user_name)) {
+        $response['user_name'] = 'taken';
+    }
+
+    if (!empty($email) && $this->User_model->email_exists($email)) {
+        $response['email'] = 'taken';
+    }
+
+    echo json_encode($response);
+}
 
 
-    // ❌ password mismatch
-    if (empty($password) || empty($confirm_password) || $password !== $confirm_password){
+public function setdataregistration()
+{
+    $this->load->library('form_validation');
+    $this->load->model('User_model');
 
-        $this->session->set_flashdata('failed', 'Password and Confirm Password do not match');
+    // ================= FORM VALIDATION RULES =================
+    $this->form_validation->set_rules(
+        'name',
+        'Full Name',
+        'required|trim|min_length[3]'
+    );
 
-        // ⭐ STORE OLD INPUT
-        $this->session->set_flashdata('old_input', $old_data);
+    $this->form_validation->set_rules(
+        'user_name',
+        'Username',
+        'required|trim|min_length[3]|is_unique[users.user_name]',
+        [
+            'is_unique' => 'Username already exists'
+        ]
+    );
 
+    $this->form_validation->set_rules(
+        'email',
+        'Email',
+        'required|trim|valid_email|is_unique[users.email]',
+        [
+            'is_unique' => 'Email already registered'
+        ]
+    );
+
+    $this->form_validation->set_rules(
+        'company_name',
+        'Company Name',
+        'required|trim'
+    );
+
+    $this->form_validation->set_rules(
+        'department',
+        'Department',
+        'required|trim'
+    );
+
+    $this->form_validation->set_rules(
+        'password',
+        'Password',
+        'required|min_length[6]'
+    );
+
+    $this->form_validation->set_rules(
+        'confirm_password',
+        'Confirm Password',
+        'required|matches[password]',
+        [
+            'matches' => 'Password and Confirm Password do not match'
+        ]
+    );
+
+    // ================= VALIDATION CHECK =================
+    if ($this->form_validation->run() == FALSE) {
+        $this->session->set_flashdata(
+            'failed',
+            validation_errors('<div>', '</div>')
+        );
         redirect('register');
         return;
     }
 
+    // ================= DATA PREPARE =================
     $arr = [
-        'name'      => $this->input->post('name', true),
-        'user_name' => $this->input->post('user_name', true),
-        'email'     => $this->input->post('email', true),
-        'company_name'=>$this->input->post('company_name',true),
-        'department'=> $this->input->post('department', true),
-        'password'  => password_hash($password, PASSWORD_DEFAULT),
-        'created_at'=> date('Y-m-d H:i:s')
+        'name'          => $this->input->post('name', true),
+        'user_name'     => $this->input->post('user_name', true),
+        'email'         => $this->input->post('email', true),
+        'company_name'  => $this->input->post('company_name', true),
+        'department'    => $this->input->post('department', true),
+        'password'      => password_hash($this->input->post('password'), PASSWORD_DEFAULT),
+        'created_at'    => date('Y-m-d H:i:s')
     ];
 
-    $this->load->model('User_model');
-
+    // ================= INSERT =================
     if ($this->User_model->setregidata($arr)) {
-        $this->session->set_flashdata('success', 'Registration successful');
+        $this->session->set_flashdata('success', 'Successfully registered');
         redirect('verify');
     } else {
         $this->session->set_flashdata('failed', 'Registration failed');
-        $this->session->set_flashdata('old_input', $old_data);
         redirect('register');
     }
 }
+
+
 
 
 
@@ -141,7 +245,7 @@ public function setdataregistration()
 
     if ($this->form_validation->run() == FALSE) {
        // $this->load->view('Same_pages/forget_password');
-       $this->session->set_flashdata('failed', 'Link is Send to Your mail id');    
+       $this->session->set_flashdata('success', 'Link is Send to Your mail id');    
        redirect('verify');
         
         

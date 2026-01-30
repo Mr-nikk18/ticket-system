@@ -1,117 +1,112 @@
-<?php
-$this->load->view('Layout/Header');
-?>
+<?php $this->load->view('Layout/Header'); ?>
 
-<!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
-    <!-- Content Header (Page header) -->
-    <section >
-      <div class="container-fluid">
-        <div class="row mb-2">
-          
+<div class="content-wrapper">
+  <section class="content">
+    <div class="container-fluid">
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Ticket History</h3>
         </div>
-      </div><!-- /.container-fluid -->
-    </section>
 
-    <!-- Main content -->
-    <section class="content">
-      <div class="container-fluid">
-        <div class="row">
-          <!-- left column -->
-          <div class="col-md-12">
-            <!-- jquery validation -->
-            <div class="card card-primary">
-              <div class="card-header">
-                <h4>Ticket Assignment History</h4>
-                <h3 class="card-title"></h3>
-              </div>
-              <!-- /.card-header -->
-              <!-- form start -->
+        <div class="card-body table-responsive p-0">
+          <table class="table table-bordered table-hover">
+            <thead class="thead-light">
+              <tr>
+                <th>Ticket ID</th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Owner</th>
+                <th>Current Handler</th>
+                <th>History</th>
+                <th>Last Updated</th>
+              </tr>
+            </thead>
 
+            <tbody>
+            <?php if (!empty($history)): ?>
 
-<table class="table table-sm table-bordered">
-  <thead>
-    <tr>
-    <th>Ticket ID</th>
-<th>Ticket Owner</th>
-<th>Title</th>
-<th>Assigned By</th>
-<th>Assigned To</th>
-<th>Remarks</th>
-<th>Date</th>
+              <?php
+              // group by ticket
+              $tickets = [];
+              foreach ($history as $row) {
+                  $tickets[$row['ticket_id']][] = $row;
+              }
+              ?>
 
-</tr>
+              <?php foreach ($tickets as $ticket_id => $rows): 
+                    $latest = $rows[0];
+              ?>
+                <tr>
+                  <td><?= $ticket_id ?></td>
 
-  </thead>
-  <tbody>
+                  <td><?= htmlspecialchars($latest['title']) ?></td>
 
-  <?php if (!empty($history)): ?>
+                  <td>
+                    <span class="badge badge-info">
+                      <?= ucfirst($latest['recent_status']) ?>
+                    </span>
+                  </td>
 
-    <?php 
-    // 🔥 VERY IMPORTANT:
-    // history must be ordered DESC by created_at in query
-    // so first row = latest action
-    $isFirst = true; 
-    ?>
+                  <td><?= htmlspecialchars($latest['ticket_owner']) ?></td>
 
-    <?php foreach ($history as $row): ?>
+                  <td><?= $latest['now_handled_by'] ?: 'Not Assigned' ?></td>
 
-        <tr>
-    <td><?= $row['ticket_id'] ?></td>
+                  <td>
+                    <ul class="mb-0 pl-3">
+                      <?php foreach ($rows as $row): ?>
+                        <li>
+                          <?php
+                          switch ($row['action_type']) {
+                            case 'assign':
+                              echo "<b>{$row['action_by']}</b> assigned to <b>{$row['assigned_to_name']}</b>";
+                              break;
 
-    <!-- Ticket Owner -->
-    <td><?= htmlspecialchars($row['ticket_owner']) ?></td>
+                            case 'accept':
+                              echo "<b>{$row['action_by']}</b> accepted the ticket";
+                              break;
 
-    <!-- Ticket Title -->
-    <td><?= htmlspecialchars($row['title']) ?></td>
+                            case 'leave':
+                              echo "<b>{$row['action_by']}</b> left the ticket";
+                              break;
 
-    <!-- Assigned By -->
-    <td><?= htmlspecialchars($row['assigned_by_name']) ?></td>
+                            case 'reassign':
+                              echo "<b>{$row['action_by']}</b> reassigned to <b>{$row['assigned_to_name']}</b>";
+                              break;
 
-    <!-- Assigned To -->
-    <td><?= htmlspecialchars($row['assigned_to_name'] ?? '-') ?></td>
+                            default:
+                              echo htmlspecialchars($row['remarks']);
+                          }
+                          ?>
+                          <br>
+                          <small class="text-muted">
+                            <?= date('d M Y, H:i', strtotime($row['created_at'])) ?>
+                          </small>
+                        </li>
+                      <?php endforeach; ?>
+                    </ul>
+                  </td>
 
-    <!-- Remarks -->
-    <td><?= htmlspecialchars($row['remarks']) ?></td>
+                  <td>
+                    <?= date('d M Y, H:i', strtotime($latest['created_at'])) ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
 
-    <!-- Date -->
-    <td><?= date('d M Y H:i', strtotime($row['created_at'])) ?></td>
-
-</tr>
-
-
-        <?php $isFirst = false; // after first row, no more buttons ?>
-
-    <?php endforeach; ?>
-
-  <?php else: ?>
-
-    <tr>
-        <td colspan="8" class="text-center">No history found</td>
-    </tr>
-
-  <?php endif; ?>
-
-  </tbody>
-</table>
-
+            <?php else: ?>
+              <tr>
+                <td colspan="7" class="text-center text-muted">
+                  No history found
+                </td>
+              </tr>
+            <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
       </div>
-            <!-- /.card -->
-            </div>
-          <!--/.col (left) -->
-          <!-- right column -->
-          <div class="col-md-6">
 
-          </div>
-          <!--/.col (right) -->
-        </div>
-        <!-- /.row -->
-      </div><!-- /.container-fluid -->
-    </section>
-    <!-- /.content -->
-  </div>
-  <!-- /.content-wrapper -->
+    </div>
+  </section>
+</div>
 
-  <?php 
-$this->load->view('layout/Footer');
-?>
+<?php $this->load->view('Layout/Footer'); ?>

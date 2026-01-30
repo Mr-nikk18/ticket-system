@@ -31,22 +31,65 @@ $username = $this->session->userdata('username');
   <link rel="stylesheet" href="<?= base_url() ?>assets/plugins/daterangepicker/daterangepicker.css">
   <!-- summernote -->
   <link rel="stylesheet" href="<?= base_url() ?>assets/plugins/summernote/summernote-bs4.min.css">
+  <script src="<?= base_url() ?>assets/plugins/jquery/jquery.min.js"></script>
+<script src="<?= base_url() ?>assets/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+<style>
+  .role-section {
+  display: none;
+}
+
+</style>
+
+<style>
+.timeline {
+  list-style: none;
+  padding-left: 0;
+}
+.timeline-item {
+  position: relative;
+  padding: 15px 20px;
+  margin-bottom: 20px;
+  border-left: 3px solid #007bff;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+.timeline-item::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  background: #007bff;
+  border-radius: 50%;
+  position: absolute;
+  left: -7px;
+  top: 20px;
+}
+.timeline-date {
+  font-size: 12px;
+  color: #6c757d;
+  display: block;
+  margin-bottom: 6px;
+}
+.timeline-content h5 {
+  font-weight: 600;
+}
+
+
+</style>
+<style>
+.border-left-primary {
+  border-left: 4px solid #007bff !important;
+}
+</style>
+
+
+
 </head>
 
 <body class="hold-transition sidebar-mini layout-fixed">
+  
 <div class="wrapper">
  <!--   <body class="hold-transition login-page"> -->
-<?php if ($this->session->flashdata('error')): ?>
-    <div class="alert alert-danger alert-dismissible fade show text-center flash-msg" role="alert">
-        <?= $this->session->flashdata('error'); ?>
-    </div>
-<?php endif; ?>
 
-<?php if ($this->session->flashdata('success')): ?>
-    <div class="alert alert-success alert-dismissible fade show text-center flash-msg" role="alert">
-        <?= $this->session->flashdata('success'); ?>
-    </div>
-<?php endif; ?>
 
 
   <!-- Preloader -->
@@ -55,7 +98,7 @@ $username = $this->session->userdata('username');
   </div>
 
   <!-- Navbar -->
-  <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+  <nav class="main-header navbar navbar-expand navbar-white navbar-light ">
     <!-- Left navbar links -->
     <ul class="navbar-nav">
       <li class="nav-item">
@@ -273,6 +316,12 @@ $username = $this->session->userdata('username');
         <a href="<?= base_url('TRS/list') ?>" class="nav-link">
           <i class="nav-icon fas fa-ticket-alt"></i>
           <p>All Tickets</p>
+        </a>
+      </li>
+ <li class="nav-item">
+        <a href="<?= base_url('TRS/my_tickets') ?>" class="nav-link">
+          <i class="nav-icon fas fa-user-check"></i>
+          <p>My Accepted Tickets</p>
         </a>
       </li>
 

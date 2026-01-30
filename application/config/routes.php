@@ -21,6 +21,7 @@ $route['dashboard'] = 'TRS/dashboard';
 
 
 /* TRS MODULE */
+$route['see']='TRS/see';
 $route['list']          = 'TRS/list';
 $route['add']           = 'TRS/add';
 $route['edit/(:num)']   = 'TRS/edit/$1';

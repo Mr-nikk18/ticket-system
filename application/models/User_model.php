@@ -2,6 +2,21 @@
 
 class User_model extends CI_Model{
 
+public function username_exists($username)
+{
+    return $this->db->where('user_name', $username)
+                    ->get('users')
+                    ->num_rows() > 0;
+}
+
+public function email_exists($email)
+{
+    return $this->db->where('email', $email)
+                    ->get('users')
+                    ->num_rows() > 0;
+}
+
+
    public function get_user_by_username($username)
     {
         return $this->db
@@ -11,7 +26,7 @@ class User_model extends CI_Model{
     }
 
 public function set_registration_detail($arr){
-return $this->db->insert('users',$arr);
+ $this->db->insert('users',$arr);
 }
 
 public function getdata($mail){

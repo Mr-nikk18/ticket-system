@@ -1,42 +1,31 @@
 <?php 
-$this->load->view('layout/Header');
+$this->load->view('Layout/Header');
 ?>
 
 
-<!-- Content Wrapper. Contains page content -->
+  <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
+   
     <!-- Content Header (Page header) -->
     <section class="content-header">
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <h1>Add Ticket</h1>
+            <h1>DataTables</h1>
           </div>
           <div class="col-sm-6">
             <ol class="breadcrumb float-sm-right">
               <li class="breadcrumb-item"><a href="#">Home</a></li>
-              <li class="breadcrumb-item active">Validation</li>
+              <li class="breadcrumb-item active">DataTables</li>
             </ol>
           </div>
         </div>
       </div><!-- /.container-fluid -->
     </section>
 
-    <!-- Main content -->
-    <section class="content">
-      <div class="container-fluid">
-        <div class="row">
-          <!-- left column -->
-          <div class="col-md-12">
-            <!-- jquery validation -->
-            <div class="card card-primary">
-              <div class="card-header">
-                <h3 class="card-title"></h3>
-              </div>
-              <!-- /.card-header -->
               <!-- form start -->
-              <form id="quickForm" method="post" action="<?= base_url('index.php/TRS/add') ?>"  >
-        <div class="card-body">
+              <form id="quickForm" method="post" action="javascript:void(0);"  >
+        <div class="card-body bg-dark">
 
   <!-- Title -->
   <div class="form-group">
@@ -64,28 +53,16 @@ $this->load->view('layout/Header');
 
 </div>
 
-                <!-- /.card-body -->
-                <div class="card-footer">
-                  <button type="submit" class="btn btn-primary">Submit</button>
-                </div>
-              </form>
-            </div>
-            <!-- /.card -->
-            </div>
-          <!--/.col (left) -->
-          <!-- right column -->
-          <div class="col-md-6">
-
-          </div>
-          <!--/.col (right) -->
-        </div>
-        <!-- /.row -->
-      </div><!-- /.container-fluid -->
+ </div>
+      <!-- /.container-fluid -->
     </section>
+
     <!-- /.content -->
   </div>
   <!-- /.content-wrapper -->
 
-  <?php 
-$this->load->view('layout/Footer');
+                
+              </form>
+         <?php 
+$this->load->view('Layout/Footer');
 ?>

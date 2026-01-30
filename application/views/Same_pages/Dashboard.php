@@ -34,16 +34,15 @@ $this->load->view('Layout/Header');
 
 <!-- Main content -->
 <section class="content">
-  <div class="ajax">
-  <div class="container-fluid">
+  <div class="container-fluid ">
 
     <!-- Small boxes (Stat box) -->
     <div class="row">
       <div class="col-lg-3 col-6">
         <div class="small-box bg-success">
           <div class="inner text-center">
-            <h3><?= $open_count ?></h3>
-<p>Open Ticket</p>
+            <h3>Open Ticket</h3>
+            <p><?= $open_count ?><p>
 
           </div>
           <div class="icon">
@@ -58,8 +57,8 @@ $this->load->view('Layout/Header');
       <div class="col-lg-3 col-6">
         <div class="small-box bg-warning">
           <div class="inner text-center">
-             <h3><?= $in_process_count ?></h3>
-            <p>In Process<p>
+            <h3>In Process</h3>
+             <p><?= $in_process_count ?></p>
           </div>
           <div class="icon">
             <i class="ion ion-stats-bars"></i>
@@ -114,7 +113,9 @@ $this->load->view('Layout/Header');
             </h3>
             <br>
 
-            <a href="<?= base_url('list') ?>" class="btn btn-sm btn-primary px-2 py-1" style="margin-right: -488px;" >
+            <a href="<?= base_url('list') ?>"
+ class="btn btn-primary btn-sm ml-auto" >
+
               View All
             </a>
           </div>
@@ -197,8 +198,7 @@ $this->load->view('Layout/Header');
   </div>
   <!-- /.content-wrapper -->
 
-
-
+      
   <?php
 $this->load->view('Layout/Footer');
 ?>
