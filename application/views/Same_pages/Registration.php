@@ -129,10 +129,38 @@
 let usernameOk = false;
 let emailOk = false;
 let passwordOk = false;
+let debounceTimer = null;
+let currentRequest = null;
+let checkingInProgress = false;
+
+
+$('#registerForm').on('submit', function (e) {
+
+    if (checkingInProgress || !usernameOk || !emailOk || !passwordOk) {
+        e.preventDefault();
+        $('#registerBtn').prop('disabled', true);
+        return false;
+    }
+
+});
+
 
 function toggleSubmit() {
-    $('#registerBtn').prop('disabled', !(usernameOk && emailOk && passwordOk));
+
+    if (checkingInProgress) {
+        $('#registerBtn').prop('disabled', true);
+        return;
+    }
+
+    if (usernameOk && emailOk && passwordOk) {
+        $('#registerBtn').prop('disabled', false);
+    } else {
+        $('#registerBtn').prop('disabled', true);
+    }
 }
+
+
+
 
 // Password match
 $('#password, #confirm_password').on('keyup blur', function () {
@@ -158,36 +186,57 @@ $('#password, #confirm_password').on('keyup blur', function () {
 
 // Username / Email AJAX
 $('#user_name, #email').on('input', function () {
-    let user_name = $('#user_name').val();
-    let email = $('#email').val();
 
-    $.ajax({
-        url: "<?= base_url('Auth/checkAvailability') ?>",
-        type: "POST",
-        dataType: "json",
-        data: { user_name, email },
-        success: function (res) {
+    // 🚨 IMMEDIATE LOCK (no delay)
+    checkingInProgress = true;
+    $('#registerBtn').prop('disabled', true);
 
-            if (res.user_name === 'taken') {
-                $('#username_error').text('Username already taken');
-                usernameOk = false;
-            } else {
-                $('#username_error').text('');
-                usernameOk = true;
-            }
+    clearTimeout(debounceTimer);
 
-            if (res.email === 'taken') {
-                $('#email_error').text('Email already registered');
-                emailOk = false;
-            } else {
-                $('#email_error').text('');
-                emailOk = true;
-            }
+    debounceTimer = setTimeout(function () {
 
+        let user_name = $('#user_name').val().trim();
+        let email     = $('#email').val().trim();
+
+        if (user_name.length < 3 || email === '') {
+            usernameOk = false;
+            emailOk = false;
+            checkingInProgress = false;
             toggleSubmit();
+            return;
         }
-    });
+
+        if (currentRequest) {
+            currentRequest.abort();
+        }
+
+        currentRequest = $.ajax({
+            url: "<?= base_url('Auth/checkAvailability') ?>",
+            type: "POST",
+            dataType: "json",
+            data: { user_name, email },
+
+            success: function (res) {
+
+                checkingInProgress = false;
+
+                usernameOk = (res.user_name !== 'taken');
+                emailOk    = (res.email !== 'taken');
+
+                $('#username_error').text(
+                    usernameOk ? '' : 'Username already taken'
+                );
+                $('#email_error').text(
+                    emailOk ? '' : 'Email already registered'
+                );
+
+                toggleSubmit();
+            }
+        });
+
+    }, 500);
 });
+
 </script>
 
 <script>
