@@ -142,8 +142,6 @@ $('#edit_assigned').val(t.assigned_engineer_id);
     }
   });
 }
-
-
 </script>
 
 
@@ -373,6 +371,102 @@ $(document).on('submit', '#reassignForm', function(e){
 });
 
 </script>
+
+<!--add developer/Admin-->
+
+<script>
+$('#adduserlist').on('submit', function(e){
+  e.preventDefault();
+
+  $.ajax({
+    url: '<?= base_url('TRS/save_userlist_ajax') ?>',
+    type: 'POST',
+    data: $('#adduserlist').serialize(),
+    dataType: 'json',
+
+    success:function(response){
+
+      if(response.status == true){
+        $('#modal-success').modal('hide');
+        $('#adduserlist')[0].reset();
+
+        alert("Successfully added")
+        window.location.href = "<?= base_url('TRS/user_list') ?>";
+      }else{
+        alert(response.message);
+      }
+    },
+
+    error:function(){
+      alert('Server error');
+    }
+  });
+});
+</script>
+
+
+<!-- edit developer/admin -->
+
+<script>
+function editUser(user_id){
+
+  $('#editUserForm')[0].reset();
+
+  $.ajax({
+    url: "<?= base_url('TRS/edit_userlist_ajax') ?>",
+    type: "POST",
+    data:{user_id:user_id},
+    dataType:"json",
+
+    success:function(res){
+
+      if(!res.status){
+        alert(res.msg);
+        return;
+      }
+
+      let u = res.data;
+
+      $('#edit_user_id').val(u.user_id);
+      $('#edit_user_name').val(u.user_name);
+      $('#edit_name').val(u.name);
+      $('#edit_email').val(u.email);
+      $('#edit_phone').val(u.phone);
+      $('#edit_company').val(u.company_name);
+      $('#edit_department').val(u.department);
+      $('#edit_role_id').val(u.role_id);
+
+      $('#editUserModal').modal('show');
+    }
+  });
+}
+</script>
+
+<script>
+$('#editUserForm').on('submit',function(e){
+ e.preventDefault();
+
+ $.ajax({
+   url:"<?= base_url('TRS/update_userlist_ajax') ?>",
+   type:"POST",
+   data:$(this).serialize(),
+   dataType:"json",
+
+   success:function(res){
+
+     if(res.status){
+       alert(res.msg);
+       $('#editUserModal').modal('hide');
+       location.reload();
+     }else{
+       alert(res.msg);
+     }
+   }
+ });
+});
+</script>
+
+
 
 </body>
 </html>

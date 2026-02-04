@@ -24,7 +24,7 @@ $this->load->view('Layout/Header');
     </section>
 
               <!-- form start -->
-              <form id="quickForm" method="post" action="javascript:void(0);"  >
+              <form id="quickForm" method="post" action="<?= base_url('TRS/add') ?>"  >
         <div class="card-body bg-dark">
 
   <!-- Title -->
@@ -50,7 +50,9 @@ $this->load->view('Layout/Header');
       </label>
     </div>
   </div>
-
+ <button type="submit" class="btn btn-success">
+        Add Ticket
+    </button>
 </div>
 
  </div>

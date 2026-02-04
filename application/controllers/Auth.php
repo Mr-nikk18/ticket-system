@@ -168,7 +168,7 @@ public function setdataregistration()
     $this->form_validation->set_rules(
         'password',
         'Password',
-        'required|min_length[6]'
+        'required|min_length[3]'
     );
 
     $this->form_validation->set_rules(
@@ -181,14 +181,21 @@ public function setdataregistration()
     );
 
     // ================= VALIDATION CHECK =================
-    if ($this->form_validation->run() == FALSE) {
-        $this->session->set_flashdata(
-            'failed',
-            validation_errors('<div>', '</div>')
-        );
-        redirect('register');
-        return;
-    }
+  if ($this->form_validation->run() == FALSE) {
+
+    // Save old form values
+    $this->session->set_flashdata('old', $this->input->post());
+
+    $this->session->set_flashdata(
+        'failed',
+        validation_errors('<div>', '</div>')
+    );
+
+    redirect('register');
+    return;
+}
+
+
 
     // ================= DATA PREPARE =================
     $arr = [

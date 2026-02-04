@@ -38,7 +38,11 @@
 
         <!-- Full Name -->
         <div class="input-group mb-3">
-          <input type="text" class="form-control" name="name" placeholder="Full name" required> 
+          <input type="text" class="form-control"  name="name"
+       value="<?= isset($this->session->flashdata('old')['name']) 
+       ? $this->session->flashdata('old')['name'] 
+       : '' ?>" placeholder="Full Name" require>
+
           <div class="input-group-append">
             <div class="input-group-text"><span class="fas fa-user"></span></div>
           </div>
@@ -46,7 +50,8 @@
 
         <!-- Username -->
         <div class="input-group mb-1">
-          <input type="text" class="form-control" id="user_name" name="user_name" placeholder="User name" required>
+          <input type="text" class="form-control" id="user_name" name="user_name" value="<?= $this->session->flashdata('old')['user_name'] ?? '' ?>"
+ placeholder="User name" required>
           <div class="input-group-append">
             <div class="input-group-text"><span class="fas fa-user"></span></div>
           </div>
@@ -55,7 +60,8 @@
 
         <!-- Email -->
         <div class="input-group mb-1">
-          <input type="email" class="form-control" id="email" name="email" placeholder="Email"  required>
+          <input type="email" class="form-control" id="email" name="email"  value="<?= $this->session->flashdata('old')['email'] ?? '' ?>"
+placeholder="Email"  required>
           <div class="input-group-append">
             <div class="input-group-text"><span class="fas fa-envelope"></span></div>
           </div>
@@ -64,7 +70,8 @@
 
         <!-- Company -->
         <div class="input-group mb-3">
-          <input type="text" class="form-control" name="company_name" placeholder="Company name">
+          <input type="text" class="form-control" name="company_name" value="<?= $this->session->flashdata('old')['company_name'] ?? '' ?>"
+ placeholder="Company name">
           <div class="input-group-append">
             <div class="input-group-text"><span class="fas fa-envelope"></span></div>
           </div>
@@ -72,7 +79,10 @@
 
         <!-- Department -->
         <div class="input-group mb-3">
-          <input type="text" class="form-control" name="department" placeholder="Department">
+          <input type="text" class="form-control" name="department"
+ value="<?= $this->session->flashdata('old')['department'] ?? '' ?>"
+ placeholder="Department">
+
           <div class="input-group-append">
             <div class="input-group-text"><span class="fas fa-envelope"></span></div>
           </div>

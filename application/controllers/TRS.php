@@ -36,7 +36,7 @@ class TRS extends My_Controller
             $data['recent_tickets'] = $this->TRS_model->get_all_recent_tickets(5);
         }
 
-        $this->load->view('Same_pages/Dashboard', $data);
+       redirect('Dashboard');
     }
 
     public function confirm_ticket($ticket_id, $answer)
@@ -585,6 +585,48 @@ class TRS extends My_Controller
         redirect('TRS/user_list');
     }
 
+
+    public function save_userlist_ajax()
+{
+    if ($this->session->userdata('role_id') == 1) {
+        echo json_encode([
+            'status' => false,
+            'message' => 'Unauthorized access'
+        ]);
+        return;
+    }
+
+    $this->load->model('User_model');
+
+    $password = $this->input->post('password');
+
+    $data = [
+        'user_id'      => $this->input->post('user_id'),
+        'user_name'   => $this->input->post('user_name'),
+        'name'        => $this->input->post('name'),
+        'email'       => $this->input->post('email'),
+        'company_name'=> $this->input->post('company_name'),
+        'phone'       => $this->input->post('phone'),
+        'department'  => $this->input->post('department'),
+        'role_id'     => $this->input->post('role_id'),
+        'password'    => password_hash($password, PASSWORD_DEFAULT),
+        'status'      => 'Active'
+    ];
+
+    if ($this->User_model->insert_user($data)) {
+        echo json_encode([
+            'status' => true,
+            'message' => 'User created successfully'
+        ]);
+    } else {
+        echo json_encode([
+            'status' => false,
+            'message' => 'Failed to create user'
+        ]);
+    }
+}
+
+
     /* ================= USER LIST ================= */
     public function user_list()
     {
@@ -606,6 +648,27 @@ class TRS extends My_Controller
 
         $this->load->view('Users/Edit_userlist', $data);
     }
+
+    public function edit_userlist_ajax()
+{
+    $user_id = $this->input->post('user_id');
+
+    $this->load->model('User_model');
+    $user = $this->User_model->get_user_staff($user_id);
+
+    if($user){
+        echo json_encode([
+            'status' => true,
+            'data'   => $user
+        ]);
+    }else{
+        echo json_encode([
+            'status' => false,
+            'msg' => 'User not found'
+        ]);
+    }
+}
+
 
     public function delete_userlist($user_id)
     {
@@ -666,6 +729,65 @@ class TRS extends My_Controller
         $this->User_model->update_user_stuff($user_id, $data);
         redirect('TRS/User_list');
     }
+
+    public function update_userlist_ajax()
+{
+    $this->load->model('User_model');
+
+    $user_id = $this->input->post('user_id');
+
+    if(!$user_id){
+        echo json_encode(['status'=>false,'msg'=>'Invalid User ID']);
+        return;
+    }
+
+    $email = $this->input->post('email');
+
+    // Duplicate email check
+    $check = $this->db
+        ->where('email', $email)
+        ->where('user_id !=', $user_id)
+        ->get('users')
+        ->row();
+
+    if($check){
+        echo json_encode([
+            'status'=>false,
+            'msg'=>'Email already exists'
+        ]);
+        return;
+    }
+
+    $data = [
+        'user_name'    => $this->input->post('user_name'),
+        'name'         => $this->input->post('name'),
+        'email'        => $email,
+        'phone'        => $this->input->post('phone'),
+        'company_name' => $this->input->post('company_name'),
+        'department'   => $this->input->post('department'),
+        'role_id'      => $this->input->post('role_id'),
+        'status'       => 'Active'
+    ];
+
+    // password update only if entered
+    $password = trim($this->input->post('password'));
+    if($password !== ''){
+        $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+    }
+
+    if($this->User_model->update_user_stuff($user_id,$data)){
+        echo json_encode([
+            'status'=>true,
+            'msg'=>'User updated successfully'
+        ]);
+    }else{
+        echo json_encode([
+            'status'=>false,
+            'msg'=>'Update failed'
+        ]);
+    }
+}
+
 
     public function ticket()
     {

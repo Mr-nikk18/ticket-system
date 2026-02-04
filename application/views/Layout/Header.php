@@ -368,108 +368,26 @@ $username = $this->session->userdata('username');
       </div>
 
 <!-- Sidebar Menu -->
-<nav class="mt-2">
-  <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
-
-    <!-- DASHBOARD (ALL ROLES) -->
-    <li class="nav-item">
-      <a href="<?= base_url('TRS/dashboard') ?>" class="nav-link">
-        <i class="nav-icon fas fa-tachometer-alt"></i>
-        <p>Dashboard</p>
-      </a>
-    </li>
-
-    <!-- USER MENU -->
-    <?php if ($role_id == 1) { ?>
-      <li class="nav-item">
-        <a href="<?= base_url('TRS/see') ?>" class="nav-link">
-          <i class="nav-icon fas fa-plus-circle"></i>
-          <p>Generate Ticket</p>
-        </a>
-      </li>
-
-      <li class="nav-item">
-        <a href="<?= base_url('TRS/list') ?>" class="nav-link">
-          <i class="nav-icon fas fa-list"></i>
-          <p>My Tickets</p>
-        </a>
-      </li>
-    <?php } ?>
-
-    <!-- DEVELOPER MENU -->
-    <?php if ($role_id == 2) { ?>
-      <li class="nav-item">
-        <a href="<?= base_url('TRS/list') ?>" class="nav-link">
-          <i class="nav-icon fas fa-ticket-alt"></i>
-          <p>All Tickets</p>
-        </a>
-      </li>
-
-      <li class="nav-item">
-        <a href="<?= base_url('TRS/my_tickets') ?>" class="nav-link">
-          <i class="nav-icon fas fa-user-check"></i>
-          <p>My Accepted Tickets</p>
-        </a>
-      </li>
-    <?php } ?>
-
-    <!-- IT HEAD MENU -->
-    <?php if ($role_id == 3) { ?>
-      <li class="nav-item">
-        <a href="<?= base_url('TRS/list') ?>" class="nav-link">
-          <i class="nav-icon fas fa-ticket-alt"></i>
-          <p>All Tickets</p>
-        </a>
-      </li>
- <li class="nav-item">
-        <a href="<?= base_url('TRS/my_tickets') ?>" class="nav-link">
-          <i class="nav-icon fas fa-user-check"></i>
-          <p>My Accepted Tickets</p>
-        </a>
-      </li>
-
-      <li class="nav-item">
-        <a href="<?= base_url('Developer/developer_performance') ?>" class="nav-link">
-          <i class="nav-icon fas fa-chart-bar"></i>
-          <p>Developer Performance</p>
-        </a>
-      </li>
-
-      <li class="nav-item">
-        <a href="<?= base_url('TRS/ticket') ?>" class="nav-link">
-          <i class="nav-icon fas fa-chart-bar"></i>
-          <p>Ticket History</p>
-        </a>
-      </li>
-    <?php } ?>
-
-    <?php if ($this->session->userdata('role_id') == 3) { ?>
+ 
+<?php foreach($menus as $menu){ ?>
 <li class="nav-item">
-    <a href="<?= base_url('TRS/add_user') ?>" class="nav-link">
-        <i class="nav-icon fas fa-user-plus"></i>
-        <p>Add User</p>
-    </a>
-</li>
-
-<li class="nav-item">
-    <a href="<?= base_url('TRS/user_list') ?>" class="nav-link">
-        <i class="nav-icon fas fa-users"></i>
-        <p>Manage Users</p>
-    </a>
+  <a href="<?= base_url($menu['url']) ?>" class="nav-link d-flex align-items-center">
+    <i class="nav-icon <?= $menu['icon'] ?>"></i>
+    <p class="ml-2 mb-0"><?= $menu['menu_name'] ?></p>
+  </a>
 </li>
 <?php } ?>
 
+<!-- LOGOUT -->
+<li class="nav-item mt-3">
+  <a href="<?= base_url('Auth/logout') ?>" class="nav-link d-flex align-items-center text-danger">
+    <i class="nav-icon fas fa-sign-out-alt"></i>
+    <p class="ml-2 mb-0">Logout</p>
+  </a>
+</li>
 
-    <!-- LOGOUT (ALL ROLES) -->
-    <li class="nav-item mt-3">
-      <a href="<?= base_url('index.php/Auth/logout') ?>" class="nav-link text-danger">
-        <i class="nav-icon fas fa-sign-out-alt"></i>
-        <p>Logout</p>
-      </a>
-    </li>
 
-  </ul>
-</nav>
+
 
     </div>
     <!-- /.sidebar -->

@@ -226,4 +226,83 @@ public function get_user_recent_tickets($user_id, $limit = 5)
     }
 
     /* -------- USER LIST -------- */
+public function get_status_count($role_id,$user_id,$status)
+{
+    $sql = "
+      SELECT COUNT(*) AS total
+      FROM tickets t
+      JOIN role_ticket_rules r
+        ON r.role_id = ?
+       AND r.status = ?
+      WHERE t.deleted_at IS NULL
+        AND t.status = ?
+        AND (
+            r.view_type = 'ALL'
+            OR (r.view_type = 'ASSIGNED' AND t.assigned_engineer_id = ?)
+            OR (r.view_type = 'OWN' AND t.user_id = ?)
+        )
+    ";
+
+    return $this->db->query($sql,[
+        $role_id,
+        $status,
+        $status,
+        $user_id,
+        $user_id
+    ])->row()->total;
+}
+
+
+
+public function get_role_view_type($role_id)
+{
+    return $this->db
+        ->select('view_type')
+        ->from('role_ticket_rules')
+        ->where('role_id',$role_id)
+        ->get()
+        ->row()
+        ->view_type;
+}
+
+
+
+
+
+public function get_recent_tickets($role_id,$user_id)
+{
+    return $this->db->query("
+        SELECT DISTINCT 
+            t.*,
+            u.user_name AS assigned_engineer_name,
+
+            /* Decide from DB if user can accept */
+            CASE
+                WHEN r.view_type = 'ASSIGNED'
+                     AND t.assigned_engineer_id IS NULL
+                     AND t.status = 'open'
+                THEN 1
+                ELSE 0
+            END AS can_accept
+
+        FROM tickets t
+        LEFT JOIN users u 
+            ON u.user_id = t.assigned_engineer_id
+        JOIN role_ticket_rules r
+            ON r.role_id = ?
+
+        WHERE t.deleted_at IS NULL
+          AND (
+                r.view_type = 'ALL'
+                OR (r.view_type = 'OWN' AND t.user_id = ?)
+                OR (r.view_type = 'ASSIGNED' AND t.assigned_engineer_id = ?)
+          )
+
+        ORDER BY t.ticket_id DESC
+        LIMIT 5
+    ", [$role_id,$user_id,$user_id])->result_array();
+}
+
+
+
 }

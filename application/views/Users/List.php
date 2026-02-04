@@ -151,7 +151,7 @@ $this->load->view('Layout/Header');
                             <br>
                             <a href="<?= base_url('TRS/delete/' . $value['ticket_id']) ?>"
                               class="btn btn-sm btn-danger mb-1"
-                              onclick="return confirm('Are you sure?');">
+                              onclick="return confirm('Are you sure you want to delete?');">
                               Delete
                             </a>
 
