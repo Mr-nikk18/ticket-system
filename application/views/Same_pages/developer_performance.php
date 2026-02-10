@@ -1,4 +1,6 @@
-<?php $this->load->view('Layout/Header'); ?>
+<?php 
+$this->load->view('Layout/Header'); 
+?>
 
 <div class="content-wrapper">
 
@@ -48,8 +50,8 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <?php if (!empty($developers)): ?>
-                    <?php $i=1; foreach ($developers as $dev): ?>
+                  <?php if (!empty($developer)): ?>
+                    <?php $i=1; foreach ($developer as $dev): ?>
                       <tr>
                         <td><?= $i++ ?></td>
                         <td><?= htmlspecialchars($dev['name']) ?></td>

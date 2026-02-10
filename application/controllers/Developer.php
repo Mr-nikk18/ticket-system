@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
-class Developer extends CI_Controller
+class Developer extends MY_Controller
 {
 
   public function __construct()
@@ -18,10 +18,10 @@ class Developer extends CI_Controller
 
   public function developer_performance()
   {
-    $data['developers'] = $this->Developer_model->getDeveloperPerformance();
+    
 
-
-    $this->load->view('Same_pages/developer_performance', $data);
+    $developer['developer'] = $this->Developer_model->getDeveloperPerformance();
+     $this->load->view('Same_pages/developer_performance', $developer);
   }
   public function developerLeaveTicket($ticket_id)
   {
@@ -227,4 +227,84 @@ class Developer extends CI_Controller
 
 <?php
 }
+
+public function status()
+{
+    $this->load->model('Developer_model');
+
+    $data['devBarData'] =$this->Developer_model->getDeveloperWiseStatus();
+
+ 
+    $this->load->view('IT_head/Status', $data);
+   
+}
+public function getDeveloperTickets()
+{
+    $dev_id = $this->input->post('developer_id');
+    $this->load->model('Developer_model');
+
+    // get tickets
+    $tickets = $this->Developer_model
+        ->getClosedResolvedProcessTickets($dev_id);
+
+    // get counts
+    $counts = $this->Developer_model
+        ->getStatusCountsForDeveloper($dev_id);
+
+    // ---------- BUILD HTML ----------
+    $html = "";
+
+    // summary
+    $html .= "
+      <ul>
+        <li>Open : {$counts['open']}</li>
+        <li>In Process : {$counts['process']}</li>
+        <li>Resolved : {$counts['resolved']}</li>
+        <li>Closed : {$counts['closed']}</li>
+      </ul>
+      <hr>
+    ";
+
+    // table start
+    $html .= "
+      <table class='table table-bordered'>
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+    ";
+
+    if(!empty($tickets)){
+        $i=1;
+        foreach($tickets as $t){
+            $html .= "
+              <tr>
+                <td>{$i}</td>
+                <td>{$t['title']}</td>
+                <td>{$t['status']}</td>
+                <td>{$t['created_at']}</td>
+              </tr>
+            ";
+            $i++;
+        }
+    }else{
+        $html .= "
+          <tr>
+            <td colspan='4' class='text-center'>No tickets found</td>
+          </tr>
+        ";
+    }
+
+    $html .= "</tbody></table>";
+
+    echo $html;
+}
+
+
+
 }

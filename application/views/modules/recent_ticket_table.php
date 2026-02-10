@@ -62,7 +62,7 @@
          Accept
       </a>
   <?php } else { ?>
-      <span class="badge badge-secondary">Assigned</span>
+      <span class="badge badge-secondary">No action </span>
   <?php } ?>
 </td>
 

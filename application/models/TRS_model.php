@@ -278,9 +278,10 @@ public function get_recent_tickets($role_id,$user_id)
 
             /* Decide from DB if user can accept */
             CASE
-                WHEN r.view_type = 'ASSIGNED'
+                WHEN r.view_type IN ('ASSIGNED','ALL')
                      AND t.assigned_engineer_id IS NULL
                      AND t.status = 'open'
+                     
                 THEN 1
                 ELSE 0
             END AS can_accept

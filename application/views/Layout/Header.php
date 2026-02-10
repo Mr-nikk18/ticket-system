@@ -368,15 +368,67 @@ $username = $this->session->userdata('username');
       </div>
 
 <!-- Sidebar Menu -->
- 
-<?php foreach($menus as $menu){ ?>
+<!-- Sidebar Menu -->
+<nav class="mt-2">
+<ul class="nav nav-pills nav-sidebar flex-column"
+    data-widget="treeview"
+    role="menu"
+    data-accordion="false">
+
+<?php
+$parents = [];
+$children = [];
+
+foreach($menus as $m){
+    if($m['parent_id'] == 0){
+        $parents[] = $m;
+    }else{
+        $children[$m['parent_id']][] = $m;
+    }
+}
+?>
+
+<?php foreach($parents as $p){ ?>
+
+<?php if(isset($children[$p['id']])){ ?>
+
+<li class="nav-item has-treeview">
+  <a href="#" class="nav-link">
+    <i class="nav-icon <?= $p['icon'] ?>"></i>
+    <p>
+      <?= $p['menu_name'] ?>
+      <i class="right fas fa-angle-left"></i>
+    </p>
+  </a>
+
+  <ul class="nav nav-treeview">
+    <?php foreach($children[$p['id']] as $c){ ?>
+      <li class="nav-item">
+        <a href="<?= base_url($c['url']) ?>" class="nav-link">
+          <i class="<?= $c['icon'] ?> nav-icon"></i>
+          <p><?= $c['menu_name'] ?></p>
+        </a>
+      </li>
+    <?php } ?>
+  </ul>
+
+</li>
+
+<?php } else { ?>
+
 <li class="nav-item">
-  <a href="<?= base_url($menu['url']) ?>" class="nav-link d-flex align-items-center">
-    <i class="nav-icon <?= $menu['icon'] ?>"></i>
-    <p class="ml-2 mb-0"><?= $menu['menu_name'] ?></p>
+  <a href="<?= base_url($p['url']) ?>" class="nav-link">
+    <i class="nav-icon <?= $p['icon'] ?>"></i>
+    <p><?= $p['menu_name'] ?></p>
   </a>
 </li>
+
 <?php } ?>
+<?php } ?>
+
+</ul>
+</nav>
+
 
 <!-- LOGOUT -->
 <li class="nav-item mt-3">

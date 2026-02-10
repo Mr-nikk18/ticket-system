@@ -58,6 +58,59 @@
     }, 3000); // 3 seconds
 </script>
 
+<?php if (isset($devBarData) && !empty($devBarData)) { ?>
+<script>
+$(function () {
+
+<?php foreach ($devBarData as $i => $dev): ?>
+
+<?php if (
+  $dev['open_cnt']==0 &&
+  $dev['process_cnt']==0 &&
+  $dev['resolved_cnt']==0 &&
+  $dev['closed_cnt']==0
+){ ?>
+
+  if (document.getElementById('pie<?= $i ?>')) {
+    document.getElementById('pie<?= $i ?>').parentElement.innerHTML =
+      "<h4 style='text-align:center;color:#999'>No Tickets</h4>";
+  }
+
+<?php } else { ?>
+
+  if (document.getElementById('pie<?= $i ?>')) {
+    new Chart(document.getElementById('pie<?= $i ?>'), {
+      type: 'pie',
+      data: {
+        labels: ['Open','In Process','Resolved','Closed'],
+        datasets: [{
+          data: [
+            <?= (int)$dev['open_cnt'] ?>,
+            <?= (int)$dev['process_cnt'] ?>,
+            <?= (int)$dev['resolved_cnt'] ?>,
+            <?= (int)$dev['closed_cnt'] ?>
+          ],
+          backgroundColor: ['#28a745','#ffc107','#17a2b8','#dc3545']
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    });
+  }
+
+<?php } ?>
+
+<?php endforeach; ?>
+
+}); // ✅ CLOSES $(function)
+</script>
+<?php } ?>
+
+
+
+
 <script>
 $(document).ready(function(){
   $('#example1').DataTable();
@@ -465,6 +518,27 @@ $('#editUserForm').on('submit',function(e){
  });
 });
 </script>
+
+<script>
+function viewMoreTickets(dev_id,dev_name){
+// 🔥 SET MODAL TITLE HERE
+  $('#devTicketsModal .modal-title').text(dev_name + ' - Tickets');
+  $.ajax({
+    url: "<?= base_url('Developer/getDeveloperTickets') ?>",
+    type: "POST",
+    data: { developer_id: dev_id },
+    success: function(response){
+
+      $('#devModalBody').html(response);
+      $('#devTicketsModal').modal('show');
+
+    }
+  });
+
+}
+</script>
+
+
 
 
 
