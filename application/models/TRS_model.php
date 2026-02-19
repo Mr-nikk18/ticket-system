@@ -327,5 +327,20 @@ public function check_status_permission($role_id, $from_status, $to_status)
                 ->row();
 }
 
+public function get_tickets_by_status($status_id, $user_id)
+{
+    $this->db->from('tickets');
+    $this->db->where('status_id', $status_id);
+
+    // Agar status Open nahi hai
+    if($status_id != 1) {  
+        $this->db->where('assigned_engineer_id', $user_id);
+    }
+
+    return $this->db->get()->result();
+}
+
+
+
 
 }

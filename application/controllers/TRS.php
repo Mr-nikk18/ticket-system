@@ -990,44 +990,59 @@ public function update_board_position()
     $current_role_id = $this->session->userdata('role_id');
     $current_user_id = $this->session->userdata('user_id');
 
+    $this->load->model('TRS_model');
+
     foreach ($order as $item) {
 
         $ticket = $this->db->where('ticket_id', $item['ticket_id'])
                            ->get('tickets')
                            ->row();
 
-        if(!$ticket){
+        if (!$ticket) {
             continue;
         }
 
         $from_status = $ticket->status_id;
         $to_status   = $status_id;
-$this->load->model('TRS_model');
-        if($from_status != $to_status){
+
+        // ✅ Permission check
+        if ($from_status != $to_status) {
 
             $permission = $this->TRS_model->check_status_permission(
-                                $current_role_id,
-                                $from_status,
-                                $to_status
-                          );
+                $current_role_id,
+                $from_status,
+                $to_status
+            );
 
-            if(!$permission){
+            if (!$permission) {
                 echo json_encode(['success' => false]);
                 return;
             }
         }
 
-        $this->db->where('ticket_id', $item['ticket_id']);
-        $this->db->update('tickets', [
+        // ✅ Update data
+        $update_data = [
             'board_position' => $item['board_position'],
-            'status_id'      => $status_id,
-            'updated_at'     => date('Y-m-d H:i:s'),
-            'assigned_engineer_id' => $current_user_id
-        ]);
+            'status_id'      => $to_status,
+            'updated_at'     => date('Y-m-d H:i:s')
+        ];
+
+        /*
+         * IMPORTANT LOGIC:
+         * Sirf jab ticket Open (1) se In Process (2) me jaye
+         * tab hi login engineer ko assign karega
+         */
+        if ($from_status == 1 && $to_status == 2) {
+            $update_data['assigned_engineer_id'] = $current_user_id;
+        }
+
+        $this->db->where('ticket_id', $item['ticket_id']);
+        $this->db->update('tickets', $update_data);
     }
 
     echo json_encode(['success' => true]);
 }
+
 
 
 

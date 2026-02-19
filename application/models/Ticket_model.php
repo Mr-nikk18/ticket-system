@@ -107,16 +107,30 @@ public function Ticket_History_Ajax($ticket_id)
 
 public function get_board_tickets()
 {
+    $user_id = $this->session->userdata('user_id');
+
     $this->db->select('t.*, ts.status_name, ts.status_slug, tp.priority_name');
     $this->db->from('tickets t');
     $this->db->join('ticket_statuses ts', 'ts.status_id = t.status_id');
     $this->db->join('ticket_priorities tp', 'tp.priority_id = t.priority_id', 'left');
     $this->db->where('t.deleted_at IS NULL');
+
+    // 🔥 MAIN FILTER LOGIC
+    $this->db->where("
+        t.status_id = 1
+        OR
+        (
+            t.status_id IN (2,3,4)
+            AND t.assigned_engineer_id = $user_id
+        )
+    ", NULL, FALSE);
+
     $this->db->order_by('ts.display_order', 'ASC');
     $this->db->order_by('t.board_position', 'ASC');
 
     return $this->db->get()->result();
 }
+
 public function update_position($ticket_id, $status_id, $position)
 {
 
