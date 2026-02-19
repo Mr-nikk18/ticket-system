@@ -71,10 +71,11 @@ public function __construct()
         $this->load->model('User_model');
         $user = $this->User_model->get_user_by_username($username);
 
-        if (!$user) {
-            $this->session->set_flashdata('failed', 'User does not exist');
-            redirect('verify');
-        }
+       if (!$user || $user->is_registered != 1 || $user->status != 'Active') {
+    $this->session->set_flashdata('failed', 'Account not activated');
+    redirect('verify');
+}
+
 
         if (!password_verify($password, $user->password)) {
             $this->session->set_flashdata('failed', 'Invalid password');
@@ -85,7 +86,9 @@ public function __construct()
             'is_login'      => true,
             'user_id'       => $user->user_id,
             'username'      => $user->user_name,
+            'avatar'      => $user->avatar,
             'role_id'       => $user->role_id,
+            'role_name'       => $user->role_name,
             'last_activity' => time()
         ]);
 
@@ -98,7 +101,7 @@ public function __construct()
     {
         $this->load->view('Same_pages/Registration');
     }
-
+/*
     public function checkAvailability()
 {
     $user_name = $this->input->post('user_name');
@@ -121,102 +124,58 @@ public function __construct()
 
     echo json_encode($response);
 }
-
+*/
 
 public function setdataregistration()
 {
     $this->load->library('form_validation');
     $this->load->model('User_model');
 
-    // ================= FORM VALIDATION RULES =================
-    $this->form_validation->set_rules(
-        'name',
-        'Full Name',
-        'required|trim|min_length[3]'
-    );
-
-    $this->form_validation->set_rules(
-        'user_name',
-        'Username',
-        'required|trim|min_length[3]|is_unique[users.user_name]',
-        [
-            'is_unique' => 'Username already exists'
-        ]
-    );
-
-    $this->form_validation->set_rules(
-        'email',
-        'Email',
-        'required|trim|valid_email|is_unique[users.email]',
-        [
-            'is_unique' => 'Email already registered'
-        ]
-    );
-
-    $this->form_validation->set_rules(
-        'company_name',
-        'Company Name',
-        'required|trim'
-    );
-
-    $this->form_validation->set_rules(
-        'department',
-        'Department',
-        'required|trim'
-    );
-
-    $this->form_validation->set_rules(
-        'password',
-        'Password',
-        'required|min_length[3]'
-    );
-
+    $this->form_validation->set_rules('user_name', 'Username', 'required|trim');
+    $this->form_validation->set_rules('email', 'Email', 'required|trim|valid_email');
+    $this->form_validation->set_rules('password', 'Password', 'required|min_length[3]');
     $this->form_validation->set_rules(
         'confirm_password',
         'Confirm Password',
-        'required|matches[password]',
-        [
-            'matches' => 'Password and Confirm Password do not match'
-        ]
+        'required|matches[password]'
     );
 
-    // ================= VALIDATION CHECK =================
-  if ($this->form_validation->run() == FALSE) {
+    if ($this->form_validation->run() == FALSE) {
+        $this->session->set_flashdata('failed', validation_errors());
+        redirect('register');
+        return;
+    }
 
-    // Save old form values
-    $this->session->set_flashdata('old', $this->input->post());
+    $email = $this->input->post('email', true);
+    $username = $this->input->post('user_name', true);
 
-    $this->session->set_flashdata(
-        'failed',
-        validation_errors('<div>', '</div>')
-    );
+    // 🔥 Check if user exists and not registered
+    $user = $this->db->where('email', $email)
+                     ->where('is_registered', 0)
+                     ->get('users')
+                     ->row();
 
-    redirect('register');
-    return;
-}
+    if (!$user) {
+        $this->session->set_flashdata('failed', 'Unauthorized or already registered');
+        redirect('register');
+        return;
+    }
 
-
-
-    // ================= DATA PREPARE =================
-    $arr = [
-        'name'          => $this->input->post('name', true),
-        'user_name'     => $this->input->post('user_name', true),
-        'email'         => $this->input->post('email', true),
-        'company_name'  => $this->input->post('company_name', true),
-        'department'    => $this->input->post('department', true),
+    // 🔥 Activate account
+    $updateData = [
+        'user_name'     => $username,
         'password'      => password_hash($this->input->post('password'), PASSWORD_DEFAULT),
-        'created_at'    => date('Y-m-d H:i:s')
+        'is_registered' => 1,
+        'status'        => 'Active'
     ];
 
-    // ================= INSERT =================
-    if ($this->User_model->setregidata($arr)) {
-        $this->session->set_flashdata('success', 'Successfully registered');
-        redirect('verify');
-    } else {
-        $this->session->set_flashdata('failed', 'Registration failed');
-        redirect('register');
-    }
+    $this->db->where('user_id', $user->user_id);
+    $this->db->update('users', $updateData);
+
+    $this->session->set_flashdata('success', 'Account activated successfully');
+    redirect('verify');
 }
+
 
 
 
@@ -250,26 +209,29 @@ public function setdataregistration()
         'required|valid_email'
     );
 
+        // STEP 1: Validate first
     if ($this->form_validation->run() == FALSE) {
-       // $this->load->view('Same_pages/forget_password');
-       $this->session->set_flashdata('success', 'Link is Send to Your mail id');    
-       redirect('verify');
-        
-        
-       return;
-    }
-      $email = $this->input->post('email');
-      //checck user exists
-    $user = $this->User_model->getdata($email);
-
-
-    if (!$user) {
         redirect('verify');
+        return;
     }
 
-    //token part
+    $email = $this->input->post('email');
+    //check user exists
+    $user = $this->User_model->getdata($email);
+    
+    
+   // STEP 2: If user not found (security purpose)
+   
+    if (!$user) {
+        $this->session->set_flashdata('success','Reset link sent successfully');
+        redirect('verify');
+    
+    }
+    
 
-      // generate secure token
+               
+    //token part
+    // generate secure token
     $token = bin2hex(random_bytes(32));
 
     // save token in DB
@@ -300,6 +262,26 @@ public function setdataregistration()
        redirect('verify');
     }
 }
+
+public function check_email_status_ajax()
+{
+    $email = $this->input->post('email');
+    $this->load->model('User_model');
+    $user = $this->User_model->getdata($email);
+
+  if (!$user) {
+        echo json_encode(['status' => 'NotFound']);
+        return;
+    }
+    if ($user['status'] == 'Inactive' ) {
+        echo json_encode(['status' => 'Inactive']);
+        return;
+    }
+
+    echo json_encode(['status' => 'Active']);
+
+}
+
 
 public function Modify_pass()
 {
@@ -343,8 +325,8 @@ public function Modify_pass()
 public function form($token = null)
 {
     if (!$token) {
-        show_error('Invalid or expired reset link');
-        return;
+        $this->session->set_flashdata('failed','Invalid/Expire reset Link');
+        redirect('verify');
     }
 
     $this->load->model('User_model');
@@ -353,8 +335,8 @@ public function form($token = null)
     $user = $this->User_model->get_user_by_token($token);
 
     if (!$user) {
-        show_error('Reset link expired or invalid');
-        return;
+          $this->session->set_flashdata('failed','Reset link Expired/Invalid');
+        redirect('verify');
     }
 
     // token view ko bhejna

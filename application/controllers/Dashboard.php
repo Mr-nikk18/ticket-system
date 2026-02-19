@@ -10,12 +10,23 @@ class Dashboard extends CI_Controller {
     }
 
    //Header
+   // Load Theme Settings
+$role_id = $this->session->userdata('role_id');
+
+$theme = $this->db
+    ->where('role_id', $role_id)
+    ->get('role_ui_settings')
+    ->row_array();
+
+// Store in session
+$this->session->set_userdata('theme', $theme);
    $this->load->model('Menu_model');
 $this->menu_data = $this->Menu_model
     ->get_menus_by_role(
         $this->session->userdata('role_id')
     );
 
+    
 
     // Load models
     $this->load->model('Dashboard_model');
@@ -33,10 +44,10 @@ $this->menu_data = $this->Menu_model
 $role_id = $this->session->userdata('role_id');
 $user_id = $this->session->userdata('user_id');
 
-$data['open_count'] = $this->TRS_model->get_status_count($role_id,$user_id,'open');
-$data['in_process_count'] = $this->TRS_model->get_status_count($role_id,$user_id,'in_progress');
-$data['resolved_count'] = $this->TRS_model->get_status_count($role_id,$user_id,'resolved');
-$data['closed_count'] = $this->TRS_model->get_status_count($role_id,$user_id,'closed');
+$data['open_count']       = $this->TRS_model->get_status_count($role_id,$user_id,1);
+$data['in_process_count'] = $this->TRS_model->get_status_count($role_id,$user_id,2);
+$data['resolved_count']   = $this->TRS_model->get_status_count($role_id,$user_id,3);
+$data['closed_count']     = $this->TRS_model->get_status_count($role_id,$user_id,4);
 
 
 

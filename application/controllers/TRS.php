@@ -25,10 +25,12 @@ class TRS extends My_Controller
 
         $uid = ($role_id == 1) ? $user_id : null;
 
-        $data['open_count']       = $this->TRS_model->count_tickets_by_status('open', $uid);
-        $data['in_process_count'] = $this->TRS_model->count_tickets_by_status('in_progress', $uid);
-        $data['resolved_count']   = $this->TRS_model->count_tickets_by_status('resolved', $uid);
-        $data['closed_count']     = $this->TRS_model->count_tickets_by_status('closed', $uid);
+        $data['open_count']       = $this->TRS_model->count_tickets_by_status(1, $uid);
+        $data['in_proess_count'] = $this->TRS_model->count_tickets_by_status(2, $uid);
+        $data['resolved_count']   = $this->TRS_model->count_tickets_by_status(3, $uid);
+        $data['closed_count']     = $this->TRS_model->count_tickets_by_status(4, $uid);
+
+
 
         if ($role_id == 1) {
             $data['recent_tickets'] = $this->TRS_model->get_user_recent_tickets($user_id, 5);
@@ -36,7 +38,8 @@ class TRS extends My_Controller
             $data['recent_tickets'] = $this->TRS_model->get_all_recent_tickets(5);
         }
 
-       redirect('Dashboard');
+      $this->load->view('Dashboard', $data);
+       
     }
 
     public function confirm_ticket($ticket_id, $answer)
@@ -55,20 +58,20 @@ class TRS extends My_Controller
             show_error('Unauthorized');
         }
 
-        if ($answer === 'yes') {
+      if ($answer === 'yes') {
 
-            // ✅ Solved → Closed
-            $this->TRS_model->update_ticket($ticket_id, [
-                'status' => 'closed'
-            ]);
+    $this->TRS_model->update_ticket($ticket_id, [
+        'status_id' => $this->TRS_model->get_status_id('closed')
+    ]);
 
-            $this->session->set_flashdata('success', 'Ticket closed successfully');
-        } else {
+    $this->session->set_flashdata('success', 'Ticket closed successfully');
 
-            // ❌ Not solved → Reopen ticket
-            $this->TRS_model->update_ticket($ticket_id, [
-                'status' => 'in_progress'
-            ]);
+} else {
+
+    $this->TRS_model->update_ticket($ticket_id, [
+        'status_id' => $this->TRS_model->get_status_id('in_progress')
+    ]);
+
 
             // 🔥 SET ONE-TIME EDIT FLAG
             $reopen = $this->session->userdata('reopen_edit_allowed');
@@ -90,43 +93,50 @@ class TRS extends My_Controller
 
     /* ================= LIST ================= */
 
-    public function list($status = null)
-    {
-        $this->load->model('TRS_model');
+ public function list($status = null)
+{
+    $this->load->model('TRS_model');
 
-        $role_id = $this->session->userdata('role_id');
-        $user_id = $this->session->userdata('user_id');
+    $role_id = $this->session->userdata('role_id');
+    $user_id = $this->session->userdata('user_id');
 
-        $allowed_status = ['open', 'in_progress', 'resolved', 'closed'];
-        if ($status && !in_array($status, $allowed_status)) {
-            show_error('Invalid status');
-        }
+    $allowed_status = [1, 2, 3, 4];
 
-        if ($role_id == 1) {
-            $data['val'] = $this->TRS_model->get_user_tickets($user_id, $status);
-        } else {
-            $data['val'] = $this->TRS_model->get_all_tickets($status);
-        }
-
-        $data['current_status'] = $status;
-        $this->load->view('Users/List', $data);
+    if ($status !== null && !in_array((int)$status, $allowed_status)) {
+        show_error('Invalid status');
     }
 
-    public function list_ajax($status = null)
-    {
-        $this->load->model('TRS_model');
+    $status = $status !== null ? (int)$status : null;
 
-        $role_id = $this->session->userdata('role_id');
-        $user_id = $this->session->userdata('user_id');
-
-        if ($role_id == 1) {
-            $data = $this->TRS_model->get_user_tickets($user_id, $status);
-        } else {
-            $data = $this->TRS_model->get_all_tickets($status);
-        }
-
-        echo json_encode(['data' => $data]);
+    if ($role_id == 1) {
+        $data['val'] = $this->TRS_model->get_user_tickets($user_id, $status);
+    } else {
+        $data['val'] = $this->TRS_model->get_all_tickets($status);
     }
+
+    $data['current_status'] = $status;
+    $this->load->view('Users/List', $data);
+}
+
+
+public function list_ajax($status = null)
+{
+    $this->load->model('TRS_model');
+
+    $role_id = $this->session->userdata('role_id');
+    $user_id = $this->session->userdata('user_id');
+
+    $status = $status !== null ? (int)$status : null;
+
+    if ($role_id == 1) {
+        $data = $this->TRS_model->get_user_tickets($user_id, $status);
+    } else {
+        $data = $this->TRS_model->get_all_tickets($status);
+    }
+
+    echo json_encode(['data' => $data]);
+}
+
 
 
 
@@ -146,7 +156,7 @@ class TRS extends My_Controller
             'user_id' => $this->session->userdata('user_id'),
             'title' => $this->input->post('title'),
             'description' => $this->input->post('description'),
-            'status' => 'open'
+            'status_id' => 1
         ]);
 
         redirect('TRS/list');
@@ -162,7 +172,7 @@ class TRS extends My_Controller
             'user_id'     => $this->session->userdata('user_id'),
             'title'       => $this->input->post('title', true),
             'description' => $this->input->post('description', true),
-            'status'      => 'open'
+            'status_id'      => 1
         ]);
 
         if ($insert) {
@@ -194,7 +204,7 @@ class TRS extends My_Controller
         // 1️⃣ Update ticket
         $this->TRS_model->update_ticket($ticket_id, [
             'assigned_engineer_id' => $user_id,
-            'status'               => 'in_progress'
+            'status_id'               => 2
         ]);
 
         // 2️⃣ Insert history (ACCEPT)
@@ -224,7 +234,7 @@ class TRS extends My_Controller
         // 1️⃣ Update main ticket
         $this->TRS_model->update_ticket($ticket_id, [
             'assigned_engineer_id' => null,
-            'status' => 'open'
+            'status_id' => 1
         ]);
 
         // 🔥 INSERT HISTORY (ONLY ONCE)
@@ -258,17 +268,17 @@ class TRS extends My_Controller
         if ($role_id == 1) {
 
             // 🚫 Never allow edit if CLOSED or RESOLVED
-            if (in_array($ticket['status'], ['closed', 'resolved'])) {
+            if (in_array($ticket['status_id'], [4,3])) {
                 show_error('Unauthorized');
             }
 
             // 🚫 Open but already assigned (normal flow)
-            if ($ticket['status'] == 'open' && $ticket['assigned_engineer_id'] != null) {
+            if ($ticket['status_id'] == 1 && $ticket['assigned_engineer_id'] != null) {
                 show_error('Unauthorized');
             }
 
             // 🔥 IN_PROGRESS case (this is the important part)
-            if ($ticket['status'] == 'in_progress') {
+            if ($ticket['status_id'] == 2) {
 
                 $reopen = $this->session->userdata('reopen_edit_allowed');
 
@@ -311,17 +321,17 @@ class TRS extends My_Controller
         /* ============== USER RULES ============== */
         if ($role_id == 1) {
 
-            if (in_array($ticket['status'], ['closed', 'resolved'])) {
+            if (in_array($ticket['status_id'], [4,3])) {
                 echo json_encode(['status' => false, 'msg' => 'Unauthorized']);
                 exit;
             }
 
-            if ($ticket['status'] == 'open' && $ticket['assigned_engineer_id'] != null) {
+            if ($ticket['status_id'] == 1 && $ticket['assigned_engineer_id'] != null) {
                 echo json_encode(['status' => false, 'msg' => 'Unauthorized']);
                 exit;
             }
 
-            if ($ticket['status'] == 'in_progress') {
+            if ($ticket['status_id'] == 2) {
                 $reopen = $this->session->userdata('reopen_edit_allowed');
 
                 if (!is_array($reopen) || !isset($reopen[$ticket_id]) || $reopen[$ticket_id] !== true) {
@@ -363,14 +373,14 @@ class TRS extends My_Controller
 
         // DEVELOPER
         if ($role_id == 2) {
-            $data['status'] = $this->input->post('status');
+            $data['status_id'] = $this->input->post('status_id');
         }
 
         // ADMIN / IT HEAD
         if ($role_id == 3) {
 
             $assigned_engineer_id = $this->input->post('assigned_engineer_id');
-            $status               = $this->input->post('status');
+            $status_id               = $this->input->post('status_id');
 
             $data['assigned_engineer_id'] = $assigned_engineer_id;
 
@@ -378,14 +388,14 @@ class TRS extends My_Controller
             if (!empty($assigned_engineer_id)) {
 
                 // agar assign hua hai aur status empty / open hai
-                if (empty($status) || $status == 'open') {
-                    $data['status'] = 'in_progress';
+                if (empty($status_id) || $status_id == 1) {
+                    $data['status_id'] = 2;
                 } else {
-                    $data['status'] = $status;
+                    $data['status_id'] = $status_id;
                 }
             } else {
                 // assign nahi hua → jo status aaya wahi
-                $data['status'] = $status;
+                $data['status_id'] = $status_id;
             }
         }
 
@@ -419,17 +429,17 @@ class TRS extends My_Controller
         if ($role_id == 1) {
 
             // 🚫 Never allow update if CLOSED or RESOLVED
-            if (in_array($ticket['status'], ['closed', 'resolved'])) {
+            if (in_array($ticket['status_id'], [4,3])) {
                 show_error('Unauthorized');
             }
 
             // 🚫 If OPEN but already assigned → block
-            if ($ticket['status'] == 'open' && $ticket['assigned_engineer_id'] != null) {
+            if ($ticket['status_id'] == 1 && $ticket['assigned_engineer_id'] != null) {
                 show_error('Unauthorized');
             }
 
             // 🔥 If IN_PROGRESS (reopened case) → allow ONLY ONCE using session flag
-            if ($ticket['status'] == 'in_progress') {
+            if ($ticket['status_id'] == 2) {
                 $reopen = $this->session->userdata('reopen_edit_allowed');
 
                 if (!isset($reopen[$ticket_id]) || $reopen[$ticket_id] !== true) {
@@ -446,13 +456,13 @@ class TRS extends My_Controller
 
         /* ================= DEVELOPER ================= */ elseif ($role_id == 2) {
             $data = [
-                'status' => $this->input->post('status')
+                'status' => $this->input->post('status_id')
             ];
         }
 
         /* ================= IT HEAD ================= */ elseif ($role_id == 3) {   // IT Head / Admin
 
-            $posted_status = $this->input->post('status');
+            $posted_status = $this->input->post('status_id');
             $new_assigned  = $this->input->post('assigned_engineer_id');
 
             $data = [
@@ -470,8 +480,8 @@ class TRS extends My_Controller
                 $data['assigned_engineer_id'] = $new_assigned;
 
                 // status logic
-                if (!in_array($posted_status, ['resolved', 'closed'])) {
-                    $data['status'] = 'in_progress';
+                if (!in_array($posted_status, [3, 4])) {
+                    $data['status'] = 2;
                 }
 
                 // 🔥 check if assignment really changed
@@ -505,7 +515,7 @@ class TRS extends My_Controller
         }
 
         /* ================= REMOVE ONE-TIME FLAG AFTER USER EDIT ================= */
-        if ($role_id == 1 && $ticket['status'] == 'in_progress') {
+        if ($role_id == 1 && $ticket['status'] ==2) {
             $reopen = $this->session->userdata('reopen_edit_allowed');
 
             if (isset($reopen[$ticket_id])) {
@@ -534,13 +544,15 @@ class TRS extends My_Controller
     public function my_tickets()
     {
         if ($this->session->userdata('role_id') == 1) {
-            show_error('Unauthorized');
+             $this->session->set_flashdata('failed','🚫Unauthorized🚫');
+             redirect('Dashboard');
         }
 
         $this->load->model('TRS_model');
 
         $data['val'] = $this->TRS_model
             ->get_my_accepted_tickets($this->session->userdata('user_id'));
+
 
         $this->load->view('Users/List', $data);
     }
@@ -549,7 +561,8 @@ class TRS extends My_Controller
     public function add_user()
     {
         if ($this->session->userdata('role_id') != 3) {
-            show_error('Unauthorized access');
+            $this->session->set_flashdata('failed','🚫Unauthorized🚫');
+            redirect('TRS/user_list');
         }
 
         $this->load->view('Users/Add_user');
@@ -557,7 +570,7 @@ class TRS extends My_Controller
 
     /* ================= SAVE USER ================= */
     public function save_user()
-    {
+{
         if ($this->session->userdata('role_id') == 1) {
             show_error('Unauthorized access');
         }
@@ -583,7 +596,7 @@ class TRS extends My_Controller
 
         $this->session->set_flashdata('success', 'User created successfully');
         redirect('TRS/user_list');
-    }
+}
 
 
     public function save_userlist_ajax()
@@ -631,7 +644,8 @@ class TRS extends My_Controller
     public function user_list()
     {
         if ($this->session->userdata('role_id') != 3) {
-            show_error('Unauthorized access');
+              $this->session->set_flashdata('failed','🚫Unauthorized🚫');
+              redirect('TRS/list');
         }
 
         $this->load->model('User_model');
@@ -792,6 +806,10 @@ class TRS extends My_Controller
     public function ticket()
     {
         $ticket_id = $this->input->post('ticket_id');
+        if ($this->session->userdata('role_id') == 1) {
+            $this->session->flashdata("failed","🚫Unauthorized🚫");
+            redirect('verify');
+        }
 
         $this->load->model('Ticket_model');
         $data['history'] = $this->Ticket_model->TicketHistory($ticket_id);
@@ -831,7 +849,7 @@ class TRS extends My_Controller
         $this->db->where('ticket_id', $ticket_id)
             ->update('tickets', [
                 'assigned_engineer_id' => $new_dev_id,
-                'status'               => 'in_progress'
+                'status_id'               => 2
             ]);
 
         // 2️⃣ History insert (REASSIGN)
@@ -886,7 +904,7 @@ class TRS extends My_Controller
         // 1️⃣ Update ticket
         $this->TRS_model->update_ticket($ticket_id, [
             'assigned_engineer_id' => $new_dev_id,
-            'status'               => 'in_progress'
+            'status_id'               => 2
         ]);
 
         // 🔹 system message
@@ -930,7 +948,7 @@ class TRS extends My_Controller
         // 1️⃣ Update ticket
         $this->TRS_model->update_ticket($ticket_id, [
             'assigned_engineer_id' => NULL,
-            'status'               => 'open'
+            'status_id'               => 1
         ]);
 
         // 2️⃣ History insert
@@ -949,4 +967,72 @@ class TRS extends My_Controller
 
         echo json_encode(['status' => true]);
     }
+    public function board()
+    {
+        $this->load->model('Ticket_model');
+
+        $data['tickets'] = $this->Ticket_model->get_board_tickets();
+        $data['statuses'] = $this->db->order_by('display_order','ASC')
+                                    ->get('ticket_statuses')
+                                    ->result();
+
+        $this->load->view('Developer/Karban_Board', $data);
+    }
+
+
+public function update_board_position()
+{
+    header('Content-Type: application/json');
+
+    $order = json_decode($this->input->post('order'), true);
+    $status_id = $this->input->post('status_id');
+
+    $current_role_id = $this->session->userdata('role_id');
+    $current_user_id = $this->session->userdata('user_id');
+
+    foreach ($order as $item) {
+
+        $ticket = $this->db->where('ticket_id', $item['ticket_id'])
+                           ->get('tickets')
+                           ->row();
+
+        if(!$ticket){
+            continue;
+        }
+
+        $from_status = $ticket->status_id;
+        $to_status   = $status_id;
+$this->load->model('TRS_model');
+        if($from_status != $to_status){
+
+            $permission = $this->TRS_model->check_status_permission(
+                                $current_role_id,
+                                $from_status,
+                                $to_status
+                          );
+
+            if(!$permission){
+                echo json_encode(['success' => false]);
+                return;
+            }
+        }
+
+        $this->db->where('ticket_id', $item['ticket_id']);
+        $this->db->update('tickets', [
+            'board_position' => $item['board_position'],
+            'status_id'      => $status_id,
+            'updated_at'     => date('Y-m-d H:i:s'),
+            'assigned_engineer_id' => $current_user_id
+        ]);
+    }
+
+    echo json_encode(['success' => true]);
+}
+
+
+
+
+
+
+
 }

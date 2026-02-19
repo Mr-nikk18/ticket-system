@@ -7,7 +7,7 @@
     <div class="icon">
       <i class="ion ion-bag"></i>
     </div>
-    <a href="<?= base_url('TRS/list/open') ?>" class="small-box-footer">
+    <a href="<?= base_url('TRS/list/1') ?>" class="small-box-footer">
       More info <i class="fas fa-arrow-circle-right"></i>
     </a>
   </div>

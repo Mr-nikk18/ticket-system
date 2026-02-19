@@ -14,6 +14,7 @@
 </div>
 <!-- ./wrapper -->
 
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 
 <!-- jQuery -->
 <script src="<?= base_url() ?>assets/plugins/jquery/jquery.min.js"></script>
@@ -55,7 +56,7 @@
             el.classList.remove('show');
             el.classList.add('hide');
         });
-    }, 3000); // 3 seconds
+    }, 5000); // 5 seconds
 </script>
 
 <?php if (isset($devBarData) && !empty($devBarData)) { ?>
@@ -177,7 +178,7 @@ function editFun(ticket_id){
       // DEVELOPER
       if(role === 2){
         $('#devSection').show();
-        $('#edit_status_dev').val(t.status);
+        $('#edit_status_dev').val(t.status_id);
       }
 
       // ADMIN / IT HEAD
@@ -188,7 +189,7 @@ function editFun(ticket_id){
   
   $('#edit_assigned').html(options);
 $('#edit_assigned').val(t.assigned_engineer_id);
-        $('#edit_status_admin').val(t.status);
+        $('#edit_status_admin').val(t.status_id);
       }
 
       $('#editModal').modal('show');
@@ -273,7 +274,7 @@ function assign(ticket_id) {
 
         // 🔥 PRESELECTS
         modal.find('#edit_assigned').val(res.data.assigned_engineer_id);
-       // modal.find('#edit_status_admin').val(res.data.status);
+       // modal.find('#edit_status_admin').val(res.data.status_id);
 
 
                 modal.modal('show');
@@ -539,6 +540,128 @@ function viewMoreTickets(dev_id,dev_name){
 </script>
 
 
+//profile available combos
+<script>
+
+let currentPage = 0;
+const perPage = 8;
+
+const avatars = document.querySelectorAll(".avatar-box");
+
+function showPage() {
+
+    avatars.forEach((box, index) => {
+        box.style.display = "none";
+    });
+
+    let start = currentPage * perPage;
+    let end = start + perPage;
+
+    for(let i = start; i < end && i < avatars.length; i++) {
+        avatars[i].style.display = "flex";
+        avatars[i].style.flexDirection = "column";
+        avatars[i].style.alignItems = "center";
+    }
+}
+
+function nextPage() {
+    if((currentPage + 1) * perPage < avatars.length) {
+        currentPage++;
+        showPage();
+    }
+}
+
+function prevPage() {
+    if(currentPage > 0) {
+        currentPage--;
+        showPage();
+    }
+}
+
+showPage(); // initial load
+
+</script>
+
+<script>
+$(".kanban-column").sortable({
+    connectWith: ".kanban-column",
+    placeholder: "ui-state-highlight",
+    forcePlaceholderSize: true,
+    tolerance: "pointer",
+    cursor: "grabbing",
+    opacity: 0.8,
+    revert: 150,
+
+    start: function (event, ui) {
+
+        ui.item.addClass("dragging");
+
+        var original_column = ui.item.closest(".kanban-column");
+        ui.item.data("original-column", original_column);
+    },
+
+    stop: function (event, ui) {
+        ui.item.removeClass("dragging");
+    },
+
+    receive: function(event, ui){
+
+        var from_status = parseInt(
+            ui.item.data("original-column").data("status")
+        );
+
+        var to_status = parseInt($(this).data("status"));
+
+        var allowed = false;
+
+        if(from_status === 1 && to_status === 2) allowed = true;
+        if(from_status === 2 && to_status === 3) allowed = true;
+        if(from_status === 3 && to_status === 2) allowed = true;
+
+        if(!allowed){
+            $(ui.item.data("original-column")).sortable("cancel");
+        }
+    },
+
+    update: function (event, ui) {
+
+        // Only run when moved between columns
+        if(!ui.sender) return;
+
+        var original_column = ui.item.data("original-column");
+
+        var from_status = parseInt(original_column.data("status"));
+        var to_status = parseInt(
+            ui.item.closest(".kanban-column").data("status")
+        );
+
+        if(from_status === to_status) return;
+
+        var column = ui.item.closest(".kanban-column");
+        var status_id = to_status;
+
+        var order = [];
+
+        column.children(".ticket-card").each(function(index){
+            order.push({
+                ticket_id: $(this).data("id"),
+                board_position: index
+            });
+        });
+
+        $.ajax({
+            url: "update_board_position",
+            type: "POST",
+            dataType: "json",
+            data: {
+                status_id: status_id,
+                order: JSON.stringify(order) // safer for CI
+            }
+        });
+    }
+});
+
+</script>
 
 
 

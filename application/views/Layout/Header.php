@@ -1,7 +1,14 @@
 <?php
-$role_id = $this->session->userdata('role_id');
 $username = $this->session->userdata('username');
+$theme = $this->session->userdata('theme');
+
+$sidebar_color = $theme['sidebar_color'] ?? '#343a40';
+$navbar_color  = $theme['navbar_color'] ?? '#ffffff';
+$card_color    = $theme['card_color'] ?? '#007bff';
+$dark_mode     = $theme['dark_mode'] ?? 0;
 ?>
+
+
 
 
 <!DOCTYPE html>
@@ -138,6 +145,25 @@ $username = $this->session->userdata('username');
   text-transform: capitalize;
 }
 
+.ticket-card {
+    transition: all 0.2s ease-in-out;
+}
+
+.dragging {
+    transform: rotate(2deg);
+    box-shadow: 0 12px 25px rgba(0,0,0,0.3);
+    background: #ffffff;
+}
+
+.kanban-placeholder {
+    height: 80px;
+    background: #e3f2fd;
+    border: 2px dashed #2196f3;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+
 /* ACTION TEXT */
 .approval-text {
   font-size: 14px;
@@ -166,6 +192,67 @@ $username = $this->session->userdata('username');
   width: 2px;
   background: #dee2e6;
 }
+.brand-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* LOGO ANIMATION */
+.trs-logo {
+  mix-blend-mode: multiply;
+    height: 48px;
+    width: 48px;
+    border-radius: 50%;
+    animation: logoPulse 3s ease-in-out infinite;
+}
+
+/* TEXT ANIMATION */
+.trs-text {
+    font-weight: 700;
+    font-size: 18px;
+    background: linear-gradient(45deg,#0d6efd,#20c997);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: textPulse 3s ease-in-out infinite;
+}
+
+/* Logo glow pulse */
+@keyframes logoPulse {
+  0% {
+        filter: drop-shadow(0 0 3px rgba(243, 242, 240, 1));
+    }
+    50% {
+        filter: drop-shadow(0 0 15px rgba(15, 15, 14, 0.9));
+    }
+    100% {
+        filter: drop-shadow(0 0 3px rgba(245, 221, 6, 0.8));
+    }
+}
+
+/* Text glow pulse */
+@keyframes textPulse {
+    0% {
+        text-shadow: 0 0 3px rgba(13,110,253,0.3);
+        opacity: 0.8;
+    }
+    50% {
+        text-shadow: 0 0 15px rgba(13,110,253,0.9);
+        opacity: 1;
+    }
+    100% {
+        text-shadow: 0 0 3px rgba(78, 248, 87, 0.97);
+        opacity: 0.8;
+    }
+}
+
+.user-panel img:hover {
+    transform: scale(1.05);
+    transition: 0.3s ease;
+}
+.user-panel {
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
 
 /* Each row */
 .approval-row {
@@ -183,21 +270,202 @@ $username = $this->session->userdata('username');
   background: #fff; /* hides remaining line */
 }
 
+.avatar-box input:checked + img {
+    box-shadow: 0 0 0 3px #007bff;
+}
+.avatar-container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
 
+.avatar-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.avatar-box input {
+    display: none;
+}
+
+.avatar-box img {
+    height: 70px;
+    width: 70px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.avatar-text {
+    margin-top: 8px;
+    font-size: 13px;
+}
+
+/* THIS IS THE IMPORTANT LINE */
+.avatar-box input:checked + img {
+    outline: 3px solid #007bff;
+}
+
+.avatar-box input:checked {
+}
+
+
+
+.avatar-wrapper {
+    text-align: center;
+}
+
+.avatar-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+}
+
+.avatar-box {
+    display: none; /* hide all by default */
+}
+
+.avatar-box img {
+    height: 70px;
+    width: 70px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.avatar-box input {
+    display: none;
+}
+
+.avatar-box input:checked + img {
+    box-shadow: 0 0 0 3px #007bff;
+}
+
+.avatar-text {
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.avatar-nav {
+    margin-top: 15px;
+}
+
+.avatar-nav button {
+    border: none;
+    background: #007bff;
+    color: white;
+    padding: 6px 12px;
+    margin: 0 5px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.kanban-column {
+    min-height: 500px;
+    background: #f4f5f7;
+    padding: 10px;
+    border-radius: 10px;
+}
+.kanban-header {
+    background: linear-gradient(135deg, #343a40, #495057);
+    color: white;
+    padding: 10px;
+    border-radius: 10px 10px 0 0;
+    font-weight: 600;
+}
+.priority-strip {
+    height: 4px;
+    border-radius: 5px 5px 0 0;
+}
+
+.high { background: #dc3545; }
+.medium { background: #ffc107; }
+.low { background: #28a745; }
+
+.ticket-card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 12px;
+    cursor: grab;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.ticket-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+}
+
+.ui-state-highlight {
+    height: 70px;
+    background: #dfe3e8;
+    border: 2px dashed #6c757d;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+</style>
+<style>
+.main-header {
+    position: relative;
+}
+
+.flash-msg {
+    position: absolute;
+    top: 1px;              /* navbar ke andar vertically adjust */
+    left: 52%;
+    transform: translateX(-50%);
+    width: auto;           /* fixed width hatao */
+    min-width: 250px;
+    max-width: 500px;
+    padding: 13px 9px;     /* padding kam karo */
+    font-size: 18px;       /* text thoda small */
+    border-radius: 13px;   /* pill shape */
+    z-index: 9999;
+}
+
+
+.flot-x-axis div {
+    transform: rotate(-30deg);
+    transform-origin: top right;
+}
+</style>
+<style>
+.main-sidebar {
+    background-color: <?= $sidebar_color ?> !important;
+}
+
+.navbar {
+    background-color: <?= $navbar_color ?> !important;
+}
+
+.card-primary {
+    border-top: 3px solid <?= $card_color ?> !important;
+}
+
+.nav-sidebar .nav-link.active {
+    background-color: <?= $card_color ?> !important;
+}
 </style>
 
 </head>
 
-<body class="hold-transition sidebar-mini layout-fixed">
+<body class="hold-transition sidebar-mini layout-fixed <?= ($dark_mode ? 'dark-mode' : '') ?>">
+
   
-<div class="wrapper">
+<div class="wrapper" >
  <!--   <body class="hold-transition login-page"> -->
 
 
 
   <!-- Preloader -->
   <div class="preloader flex-column justify-content-center align-items-center">
-    <img class="animation__shake" src="<?= base_url() ?>assets/dist/img/AdminLTELogo.png" alt="AdminLTELogo" height="60" width="60">
+    <img class="animation__shake" src="<?= base_url() ?>assets/dist/img/TRS.png" alt="TRS" height="60" width="60">
   </div>
 
   <!-- Navbar -->
@@ -210,7 +478,21 @@ $username = $this->session->userdata('username');
       <li class="nav-item d-none d-sm-inline-block">
         <a href="<?= base_url('TRS/Dashboard') ?>" class="nav-link">Home</a>
       </li>
+      
     </ul>
+    <?php if ($this->session->flashdata('failed')): ?>
+    <div class="alert alert-danger alert-dismissible fade show text-center flash-msg" role="alert">
+        <?= $this->session->flashdata('failed'); ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($this->session->flashdata('success')): ?>
+    <div class="alert alert-success alert-dismissible fade show text-center flash-msg" role="alert">
+        <?= $this->session->flashdata('success'); ?>
+    </div>
+<?php endif; ?>
+      
+    
 
     <!-- Right navbar links -->
     <ul class="navbar-nav ml-auto">
@@ -332,28 +614,68 @@ $username = $this->session->userdata('username');
         </a>
       </li>
     </ul>
+
+  
   </nav>
   <!-- /.navbar -->
+   
+    
 
-  <!-- Main Sidebar Container -->
-  <aside class="main-sidebar sidebar-dark-primary elevation-4">
+<!-- Main Sidebar Container -->
+<aside class="main-sidebar elevation-4">
+
     <!-- Brand Logo -->
-    <a href="#" class="brand-link">
-      <img src="<?= base_url() ?>assets/dist/img/AdminLTELogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
-      <span class="brand-text font-weight-light">Ticket Raising System</span>
-    </a>
+    <div class="brand-link d-flex align-items-center justify-content-center"
+         style="padding:20px 10px;">
 
+        <img src="<?= base_url('assets/dist/img/TRS.png') ?>" class="trs-logo">
+
+        <span style="
+            font-weight:700;
+            font-size:17px;
+            margin-left:10px;
+            
+            background:linear-gradient(45deg,#0d6efd,#20c997);
+            -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent;
+        " class="trs-text">
+            TRS Portal
+        </span>
+    </div>
+<hr>
     <!-- Sidebar -->
     <div class="sidebar">
-      <!-- Sidebar user panel (optional) -->
-      <div class="user-panel mt-3 pb-3 mb-3 d-flex">
-        <div class="image">
-          <img src="<?= base_url() ?>assets/dist/img/user2-160x160.jpg" class="img-circle elevation-2" alt="User Image">
+
+        <!-- Compact User Panel -->
+        <div class="user-panel d-flex align-items-center"
+             style="padding:15px 2px; border-bottom:1px solid rgba(0,0,0,0.05);">
+
+            <img src="<?= base_url('assets/dist/img/'.($this->session->userdata('avatar') ?? 'default.png')) ?>"
+                 style="
+                    height:48px;
+                    width:48px;
+                    border-radius:50%;
+                    object-fit:cover;
+                    border:2px solid #fff;
+                    box-shadow:0 4px 10px rgba(0,0,0,0.2);
+                    cursor:pointer;
+                 "
+                 data-toggle="modal"
+                 data-target="#avatarModal">
+
+            <div style="margin-left:12px;">
+                <div style="font-weight:900; font-size:20px;">
+                   <?= ucfirst($username) ?> 
+                </div>
+                <div style="font-weight:400;font-size:12px; color:#6c757d;">
+    <?= ucfirst($this->session->userdata('role_name')); ?>
+</div>
+
+            </div>
+
         </div>
-        <div class="info">
-         <a href="#" class="d-block"><?= $username ?></a>
-        </div>
-      </div>
+
+
 
       <!-- SidebarSearch Form -->
       <div class="form-inline">
@@ -366,6 +688,7 @@ $username = $this->session->userdata('username');
           </div>
         </div>
       </div>
+
 
 <!-- Sidebar Menu -->
 <!-- Sidebar Menu -->
@@ -444,3 +767,91 @@ foreach($menus as $m){
     </div>
     <!-- /.sidebar -->
   </aside>
+
+
+  <div class="modal fade" id="avatarModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Change Profile Icon</h5>
+        <button type="button" class="close" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
+      </div>
+
+      <div class="modal-body text-center">
+
+       <form method="post"
+      action="<?= base_url('UserController/upload_avatar') ?>"
+      enctype="multipart/form-data">
+
+  <div class="modal-body text-center">
+
+<div class="avatar-wrapper">
+
+    <div class="avatar-container" id="avatarContainer">
+
+        <!-- Avatars -->
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="avatar1.png"><img src="<?= base_url('assets/dist/img/avatar1.png') ?>"><span class="avatar-text">Default</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="avatar2.png"><img src="<?= base_url('assets/dist/img/avatar2.png') ?>"><span class="avatar-text">Option 1</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="avatar3.png"><img src="<?= base_url('assets/dist/img/avatar3.png') ?>"><span class="avatar-text">Option 2</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="avatar4.png"><img src="<?= base_url('assets/dist/img/avatar4.png') ?>"><span class="avatar-text">Option 3</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="avatar5.png"><img src="<?= base_url('assets/dist/img/avatar5.png') ?>"><span class="avatar-text">Option 4</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="user1-128x128.jpg"><img src="<?= base_url('assets/dist/img/user1-128x128.jpg') ?>"><span class="avatar-text">Option 5</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="user2-128x128.jpg"><img src="<?= base_url('assets/dist/img/user2-160x160.jpg') ?>"><span class="avatar-text">Option 6</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="user3-128x128.jpg"><img src="<?= base_url('assets/dist/img/user3-128x128.jpg') ?>"><span class="avatar-text">Option 7</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="user4-128x128.jpg"><img src="<?= base_url('assets/dist/img/user4-128x128.jpg') ?>"><span class="avatar-text">Option 8</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="user5-128x128.jpg"><img src="<?= base_url('assets/dist/img/user5-128x128.jpg') ?>"><span class="avatar-text">Option 9</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="user6-128x128.jpg"><img src="<?= base_url('assets/dist/img/user6-128x128.jpg') ?>"><span class="avatar-text">Option 10</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="user7-128x128.jpg"><img src="<?= base_url('assets/dist/img/user7-128x128.jpg') ?>"><span class="avatar-text">Option 11</span></label>
+
+        <label class="avatar-box"><input type="radio" name="selected_avatar" value="user8-128x128.jpg"><img src="<?= base_url('assets/dist/img/user8-128x128.jpg') ?>"><span class="avatar-text">Option 12</span></label>
+
+    </div>
+
+    <!-- Navigation Arrows -->
+    <div class="avatar-nav">
+        <button type="button" onclick="prevPage()">&#8592;</button>
+        <button type="button" onclick="nextPage()">&#8594;</button>
+    </div>
+
+</div>
+
+
+
+    <hr>
+
+    <div class="text-left mt-3">
+      <label><b>Or Upload New Image</b></label>
+      <input type="file" name="avatar_file" class="form-control">
+    </div>
+
+  </div>
+
+  <div class="modal-footer">
+    <button type="submit" class="btn btn-primary">Change</button>
+    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+  </div>
+
+</form>
+
+
+      </div>
+
+
+    </div>
+  </div>
+</div>
+

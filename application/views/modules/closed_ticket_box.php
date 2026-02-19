@@ -7,7 +7,7 @@
     <div class="icon">
       <i class="ion ion-pie-graph"></i>
     </div>
-    <a href="<?= base_url('TRS/list/closed') ?>" class="small-box-footer">
+    <a href="<?= base_url('TRS/list/4') ?>" class="small-box-footer">
       More info <i class="fas fa-arrow-circle-right"></i>
     </a>
   </div>

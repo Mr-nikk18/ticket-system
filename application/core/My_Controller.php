@@ -12,7 +12,8 @@ class MY_Controller extends CI_Controller {
 
         // 🔐 Login required
         if ($this->session->userdata('is_login') !== true) {
-            redirect('verify');
+         $this->session->set_flashdata('failed', 'Please login first');
+        redirect('verify');
         }
 
         // ⏳ Session timeout (30 min)

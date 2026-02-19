@@ -39,17 +39,18 @@
                 <td><?= $ticket['title'] ?></td>
                 <td><?= $ticket['description'] ?></td>
 
-                <td>
-                  <?php if ($ticket['status'] == 'open') { ?>
-                    <span class="badge badge-success">Open</span>
-                  <?php } elseif ($ticket['status'] == 'in_progress') { ?>
-                    <span class="badge badge-warning">In Process</span>
-                  <?php } elseif ($ticket['status'] == 'resolved') { ?>
-                    <span class="badge badge-info">Resolved</span>
-                  <?php } else { ?>
-                    <span class="badge badge-secondary">Closed</span>
-                  <?php } ?>
-                </td>
+               <td>
+  <?php if ($ticket['status_id'] == 1) { ?>
+    <span class="badge badge-success">Open</span>
+  <?php } elseif ($ticket['status_id'] == 2) { ?>
+    <span class="badge badge-warning">In Process</span>
+  <?php } elseif ($ticket['status_id'] == 3) { ?>
+    <span class="badge badge-info">Resolved</span>
+  <?php } elseif ($ticket['status_id'] == 4) { ?>
+    <span class="badge badge-secondary">Closed</span>
+  <?php } ?>
+</td>
+
 
                 <td><?= date('d-m-Y', strtotime($ticket['created_at'])) ?></td>
                 <td><?= $ticket['assigned_engineer_name'] ?? 'Not Assigned' ?>
@@ -62,7 +63,7 @@
          Accept
       </a>
   <?php } else { ?>
-      <span class="badge badge-secondary">No action </span>
+      <span class="badge badge-secondary">No action  </span>
   <?php } ?>
 </td>
 

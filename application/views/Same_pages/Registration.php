@@ -34,9 +34,10 @@
     <div class="card-body register-card-body">
       <p class="login-box-msg">Register a new membership</p>
 
-      <form action="<?= base_url('Auth/setdataregistration') ?>" method="post">
+      <form id="registerForm"action="<?= base_url('Auth/setdataregistration') ?>" method="post">
 
         <!-- Full Name -->
+         <!--
         <div class="input-group mb-3">
           <input type="text" class="form-control"  name="name"
        value="<?= isset($this->session->flashdata('old')['name']) 
@@ -47,6 +48,7 @@
             <div class="input-group-text"><span class="fas fa-user"></span></div>
           </div>
         </div>
+-->
 
         <!-- Username -->
         <div class="input-group mb-1">
@@ -69,6 +71,7 @@ placeholder="Email"  required>
         <div class="text-danger small mb-2" id="email_error"></div>
 
         <!-- Company -->
+         <!--
         <div class="input-group mb-3">
           <input type="text" class="form-control" name="company_name" value="<?= $this->session->flashdata('old')['company_name'] ?? '' ?>"
  placeholder="Company name">
@@ -76,8 +79,9 @@ placeholder="Email"  required>
             <div class="input-group-text"><span class="fas fa-envelope"></span></div>
           </div>
         </div>
-
-        <!-- Department -->
+-->
+<!-- Department -->
+<!--
         <div class="input-group mb-3">
           <input type="text" class="form-control" name="department"
  value="<?= $this->session->flashdata('old')['department'] ?? '' ?>"
@@ -87,7 +91,7 @@ placeholder="Email"  required>
             <div class="input-group-text"><span class="fas fa-envelope"></span></div>
           </div>
         </div>
-
+        -->
         <!-- Password -->
         <div class="input-group mb-3">
           <input type="password" class="form-control" id="password" name="password" placeholder="Password"  minlength="3"
@@ -135,6 +139,8 @@ placeholder="Email"  required>
 <script src="<?= base_url() ?>assets/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="<?= base_url() ?>assets/dist/js/adminlte.min.js"></script>
 
+
+  <!--
 <script>
 let usernameOk = false;
 let emailOk = false;
@@ -153,8 +159,11 @@ $('#registerForm').on('submit', function (e) {
     }
 
 });
+</script>
 
-
+-->
+<!--
+<script>
 function toggleSubmit() {
 
     if (checkingInProgress) {
@@ -163,14 +172,17 @@ function toggleSubmit() {
     }
 
     if (usernameOk && emailOk && passwordOk) {
+    if (passwordOk) {
         $('#registerBtn').prop('disabled', false);
     } else {
         $('#registerBtn').prop('disabled', true);
     }
 }
 
-
-
+</script>
+-->
+<!--
+<script>
 
 // Password match
 $('#password, #confirm_password').on('keyup blur', function () {
@@ -247,6 +259,48 @@ $('#user_name, #email').on('input', function () {
     }, 500);
 });
 
+</script>
+-->
+ <script>
+let passwordOk = false;
+
+function toggleSubmit() {
+    if (passwordOk) {
+        $('#registerBtn').prop('disabled', false);
+    } else {
+        $('#registerBtn').prop('disabled', true);
+    }
+}
+
+// Form submit check
+$('#registerForm').on('submit', function (e) {
+    if (!passwordOk) {
+        e.preventDefault();
+        $('#registerBtn').prop('disabled', true);
+        return false;
+    }
+});
+
+// Password match check
+$('#password, #confirm_password').on('keyup blur', function () {
+    let pass = $('#password').val();
+    let cpass = $('#confirm_password').val();
+
+    if (cpass === '') {
+        $('#password_error').text('');
+        passwordOk = false;
+    } 
+    else if (pass !== cpass) {
+        $('#password_error').text('Password not matched');
+        passwordOk = false;
+    } 
+    else {
+        $('#password_error').text('');
+        passwordOk = true;
+    }
+
+    toggleSubmit();
+});
 </script>
 
 <script>

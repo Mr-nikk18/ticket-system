@@ -80,16 +80,17 @@ $this->load->view('layout/Header');
 
     <div class="form-group">
         <label>Change Status</label>
-        <select name="status" class="form-control" required>
-            <option value="in_progress"
-                <?= $value['status']=='in_progress' ? 'selected' : '' ?>>
-                In Progress
-            </option>
-            <option value="resolved"
-                <?= $value['status']=='resolved' ? 'selected' : '' ?>>
-                Resolved
-            </option>
-        </select>
+        <select name="status_id" class="form-control" required>
+    <option value="2"
+        <?= $value['status_id']==2 ? 'selected' : '' ?>>
+        In Progress
+    </option>
+    <option value="3"
+        <?= $value['status_id']==3 ? 'selected' : '' ?>>
+        Resolved
+    </option>
+</select>
+
     </div>
 
     <button type="submit" class="btn btn-success">
@@ -138,20 +139,21 @@ $this->load->view('layout/Header');
 
     <div class="form-group">
         <label>Status</label>
-        <select name="status" class="form-control" required>
-            <option value="in_progress"
-                <?= $value['status']=='in_progress' ? 'selected' : '' ?>>
-                In Progress
-            </option>
-            <option value="resolved"
-                <?= $value['status']=='resolved' ? 'selected' : '' ?>>
-                Resolved
-            </option>
-            <option value="closed"
-                <?= $value['status']=='closed' ? 'selected' : '' ?>>
-                Closed
-            </option>
-        </select>
+       <select name="status_id" class="form-control" required>
+    <option value="2"
+        <?= $value['status_id']==2 ? 'selected' : '' ?>>
+        In Progress
+    </option>
+    <option value="3"
+        <?= $value['status_id']==3 ? 'selected' : '' ?>>
+        Resolved
+    </option>
+    <option value="4"
+        <?= $value['status_id']==4 ? 'selected' : '' ?>>
+        Closed
+    </option>
+</select>
+
     </div>
 
     <button type="submit" class="btn btn-primary">

@@ -42,37 +42,41 @@
 
                   <td><?= htmlspecialchars($latest['title']) ?></td>
 
-                 <td>
+            <td>
   <?php
-    $status = strtolower($latest['recent_status']);
+    switch ($latest['recent_status']) {
 
-    switch ($status) {
       case 'open':
-        $badge = 'badge-success';   // green
+        $badge = 'badge-success';
+        $label = 'Open';
         break;
 
       case 'in_progress':
-      case 'in process':
-        $badge = 'badge-warning';   // yellow
-        break;
-
-      case 'closed':
-        $badge = 'badge-danger';    // red
+        $badge = 'badge-warning';
+        $label = 'In Process';
         break;
 
       case 'resolved':
-        $badge = 'badge-primary';   // blue
+        $badge = 'badge-primary';
+        $label = 'Resolved';
+        break;
+
+      case 'closed':
+        $badge = 'badge-danger';
+        $label = 'Closed';
         break;
 
       default:
-        $badge = 'badge-secondary'; // grey
+        $badge = 'badge-secondary';
+        $label = 'Unknown';
     }
   ?>
 
   <span class="badge <?= $badge ?>">
-    <?= ucfirst($latest['recent_status']) ?>
+    <?= $label ?>
   </span>
 </td>
+
 
 
                   <td><?= htmlspecialchars($latest['ticket_owner']) ?></td>

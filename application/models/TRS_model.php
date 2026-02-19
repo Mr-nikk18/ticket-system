@@ -9,7 +9,7 @@ class TRS_model extends CI_Model
             ->select('
             tickets.*,
             u.name            AS user_full_name,
-            u.department      AS user_department,
+            u.department_id      AS departments_department_name,
             d.name            AS assigned_engineer_name
         ')
             ->from('tickets')
@@ -62,12 +62,18 @@ public function insert_reassignment_history($data)
     }
 
     /* -------- COUNTS -------- */
-    public function count_tickets_by_status($status, $user_id = null)
-    {
-        $this->db->where('status', $status);
-        if ($user_id) $this->db->where('user_id', $user_id);
-        return $this->db->count_all_results('tickets');
+   public function count_tickets_by_status($status, $user_id = null)
+{
+    $this->db->where('status_id', $status);
+    $this->db->where('deleted_at IS NULL', null, false);
+
+    if ($user_id) {
+        $this->db->where('user_id', $user_id);
     }
+
+    return $this->db->count_all_results('tickets');
+}
+
 
     /* -------- USER TICKETS -------- */
     public function get_user_tickets($user_id, $status = null)
@@ -80,18 +86,22 @@ public function insert_reassignment_history($data)
         ->where('tickets.deleted_at IS NULL');
 
     if ($status) {
-        $this->db->where('tickets.status', $status);
+        $this->db->where('tickets.status_id', $status);
     }
 
     // 🔥 Status priority for USER
     $this->db->order_by("
-        CASE
-            WHEN tickets.status = 'in_progress' THEN 1
-            WHEN tickets.status = 'resolved'    THEN 2
-            WHEN tickets.status = 'open'        THEN 3
-            WHEN tickets.status = 'closed'      THEN 4
-            ELSE 5
-        END
+        
+            CASE
+    WHEN tickets.status_id = 2 THEN 1
+    WHEN tickets.status_id = 3 THEN 2
+    WHEN tickets.status_id = 1 THEN 3
+    WHEN tickets.status_id = 4 THEN 4
+    ELSE 5
+END
+
+
+            
     ", '', false);
 
     $this->db->order_by('tickets.ticket_id', 'DESC');
@@ -105,39 +115,41 @@ public function insert_reassignment_history($data)
 {
     $user_id = $this->session->userdata('user_id');
 
-    $this->db
+    $this->db 
         ->select('
             tickets.*,
             u.name AS user_full_name,
-            u.department AS user_department,
+            dept.department_name AS department_name,
             d.name AS assigned_engineer_name
         ')
         ->from('tickets')
         ->join('users u', 'u.user_id = tickets.user_id', 'left')
+                ->join('departments dept', 'dept.department_id = u.department_id', 'left')
         ->join('users d', 'd.user_id = tickets.assigned_engineer_id', 'left')
         ->where('tickets.deleted_at IS NULL');
 
     if ($status) {
-        $this->db->where('tickets.status', $status);
+        $this->db->where('tickets.status_id', $status);
     }
 
     $this->db->order_by("
         CASE
-            -- 🔥 1️⃣ Logged-in user ke tickets pehle
             WHEN tickets.assigned_engineer_id = {$user_id} THEN 1
             ELSE 2
         END
     ", '', false);
 
     $this->db->order_by("
-        CASE
-            -- 🔥 2️⃣ Status priority (SAME FOR ALL)
-            WHEN tickets.status = 'in_progress' THEN 1
-            WHEN tickets.status = 'resolved'    THEN 2
-            WHEN tickets.status = 'open'        THEN 3
-            WHEN tickets.status = 'closed'      THEN 4
-            ELSE 5
-        END
+        
+         
+       CASE
+    WHEN tickets.status_id = 2 THEN 1
+    WHEN tickets.status_id = 3 THEN 2
+    WHEN tickets.status_id = 1 THEN 3
+    WHEN tickets.status_id = 4 THEN 4
+    ELSE 5
+END
+
     ", '', false);
 
     $this->db->order_by('tickets.ticket_id', 'DESC');
@@ -159,7 +171,7 @@ public function get_all_recent_tickets($limit)
         ->order_by("
             CASE 
                 WHEN t.assigned_engineer_id = {$developer_id} 
-                     AND t.status IN ('in_process', 'closed') THEN 1
+                     AND t.status_id IN (2,4) THEN 1
                 ELSE 2
             END
         ", '', false)
@@ -194,19 +206,20 @@ public function get_user_recent_tickets($user_id, $limit = 5)
         ->select('
             tickets.*,
             u.name AS user_full_name,
-            u.department AS user_department,
+            dept.department_name AS department_name,
             d.name AS assigned_engineer_name
         ')
         ->from('tickets')
         ->join('users u', 'u.user_id = tickets.user_id', 'left')
+         ->join('departments dept', 'dept.department_id = u.department_id', 'left')
         ->join('users d', 'd.user_id = tickets.assigned_engineer_id', 'left')
         ->where('tickets.assigned_engineer_id', $developer_id)
-        ->where_in('tickets.status', ['resolved', 'in_progress', 'closed'])
+        ->where_in('tickets.status_id', [3, 2, 4])
         ->order_by("
             CASE
-            WHEN tickets.status = 'in_progress' THEN 1
-                WHEN tickets.status = 'resolved' THEN 2
-                WHEN tickets.status = 'closed' THEN 3
+            WHEN tickets.status_id = 2 THEN 1
+                WHEN tickets.status_id = 3 THEN 2
+                WHEN tickets.status_id = 4 THEN 3
                 ELSE 4
             END
         ", '', false)
@@ -235,7 +248,7 @@ public function get_status_count($role_id,$user_id,$status)
         ON r.role_id = ?
        AND r.status = ?
       WHERE t.deleted_at IS NULL
-        AND t.status = ?
+        AND t.status_id = ?
         AND (
             r.view_type = 'ALL'
             OR (r.view_type = 'ASSIGNED' AND t.assigned_engineer_id = ?)
@@ -280,7 +293,7 @@ public function get_recent_tickets($role_id,$user_id)
             CASE
                 WHEN r.view_type IN ('ASSIGNED','ALL')
                      AND t.assigned_engineer_id IS NULL
-                     AND t.status = 'open'
+                     AND t.status_id = 1
                      
                 THEN 1
                 ELSE 0
@@ -304,6 +317,15 @@ public function get_recent_tickets($role_id,$user_id)
     ", [$role_id,$user_id,$user_id])->result_array();
 }
 
+public function check_status_permission($role_id, $from_status, $to_status)
+{
+    return $this->db
+                ->where('role_id', $role_id)
+                ->where('from_status', $from_status)
+                ->where('to_status', $to_status)
+                ->get('status_permissions')
+                ->row();
+}
 
 
 }

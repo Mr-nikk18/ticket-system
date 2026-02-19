@@ -28,7 +28,7 @@ $this->load->view('Layout/Header');
         <div class="card-body bg-dark">
 
   <!-- Title -->
-  <div class="form-group">
+  <div class="form-group ">
     <label>Title</label>
     <input type="text" name="title" class="form-control" placeholder="Enter Title" required>
   </div>

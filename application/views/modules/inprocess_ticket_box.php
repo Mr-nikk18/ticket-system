@@ -7,7 +7,7 @@
     <div class="icon">
       <i class="ion ion-stats-bars"></i>
     </div>
-    <a href="<?= base_url('TRS/list/in_progress') ?>" class="small-box-footer">
+    <a href="<?= base_url('TRS/list/2') ?>" class="small-box-footer">
       More info <i class="fas fa-arrow-circle-right"></i>
     </a>
   </div>

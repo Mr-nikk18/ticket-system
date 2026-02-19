@@ -41,11 +41,24 @@ $this->load->view('Layout/Header');
         <div class="col-12">
           <div class="card">
             <div class="card-header d-flex align-items-center">
-              <h3 class="card-title mb-0">
-                <?= isset($current_status) && $current_status
-                  ? ucfirst(str_replace('_', ' ', $current_status)) . ' Tickets'
-                  : 'All Tickets' ?>
-              </h3>
+        <h3 class="card-title mb-0">
+<?php
+if(isset($current_status) && $current_status){
+
+    switch((int)$current_status){
+        case 1: echo "Open Tickets"; break;
+        case 2: echo "In Process Tickets"; break;
+        case 3: echo "Resolved Tickets"; break;
+        case 4: echo "Closed Tickets"; break;
+        default: echo "All Tickets";
+    }
+
+}else{
+    echo "All Tickets";
+}
+?>
+</h3>
+
 
               <?php if ($this->session->userdata('role_id') == 1) { ?>
                 <button type="button" data-toggle="modal" data-target="#createModal"
@@ -85,7 +98,7 @@ $this->load->view('Layout/Header');
                       <td><?= $n ?></td>
                       <?php if (in_array($this->session->userdata('role_id'), [2, 3])) { ?>
                         <td><?= $value['user_full_name'] ?></td>
-                        <td><?= $value['user_department'] ?></td>
+                        <td><?= $value['department_name'] ?></td>
                       <?php } ?>
 
                       <td><?= $value['ticket_id'] ?></td>
@@ -97,18 +110,19 @@ $this->load->view('Layout/Header');
                           : 'Not Assigned' ?>
                       </td>
                       <td>
-                        <?php if ($value['status'] == 'open') { ?>
-                          <span class="fas fa-circle text-success">Open</span>
+                       <?php if ($value['status_id'] == 1) { ?>
+  <span class="fas fa-circle text-success">Open</span>
 
-                        <?php } elseif ($value['status'] == 'in_progress') { ?>
-                          <span class="fas fa-circle text-warning">In Process</span>
+<?php } elseif ($value['status_id'] == 2) { ?>
+  <span class="fas fa-circle text-warning">In Process</span>
 
-                        <?php } elseif ($value['status'] == 'resolved') { ?>
-                          <span class="fas fa-circle text-warning">resolved</span>
+<?php } elseif ($value['status_id'] == 3) { ?>
+  <span class="fas fa-circle text-info">Resolved</span>
 
-                        <?php } else { ?>
-                          <span class="fas fa-circle text-danger">Closed</span>
-                        <?php } ?>
+<?php } elseif ($value['status_id'] == 4) { ?>
+  <span class="fas fa-circle text-danger">Closed</span>
+<?php } ?>
+
                       </td>
                       <td><?= $value['created_at'] ?></td>
 
@@ -128,7 +142,7 @@ $this->load->view('Layout/Header');
                           ?>
 
                           <!-- 🟡 RESOLVED → ASK CONFIRMATION -->
-                          <?php if ($value['status'] == 'resolved') { ?>
+                          <?php if ($value['status_id'] == 3) { ?>
 
                             <span class="text-info d-block mb-1">Is issue solved?</span>
 
@@ -139,7 +153,7 @@ $this->load->view('Layout/Header');
                               class="btn btn-sm btn-warning mb-1">No</a>
 
                             <!-- 🔵 OPEN & NOT ASSIGNED -->
-                          <?php } elseif ($value['status'] == 'open' && $value['assigned_engineer_id'] == null) { ?>
+                          <?php } elseif ($value['status_id'] == 1 && $value['assigned_engineer_id'] == null) { ?>
 
                             <!--     <a href="<?= base_url('TRS/edit/' . $value['ticket_id']) ?>"
            class="btn btn-sm btn-primary mb-1">Edit</a> -->
@@ -157,7 +171,7 @@ $this->load->view('Layout/Header');
 
                             <!-- 🟢 REOPENED (IN_PROGRESS WITH FLAG) → ALLOW ONLY EDIT -->
                           <?php } elseif (
-                            $value['status'] == 'in_progress' &&
+                            $value['status_id'] == 2 &&
                             is_array($reopen) &&
                             isset($reopen[$value['ticket_id']]) &&
                             $reopen[$value['ticket_id']] === true
@@ -186,7 +200,7 @@ $this->load->view('Layout/Header');
 
                         <?php if ($role_id == 2) { ?>
 
-                          <?php if ($value['status'] == 'open' && empty($value['assigned_engineer_id'])) { ?>
+                          <?php if ($value['status_id'] == 1 && empty($value['assigned_engineer_id'])) { ?>
 
                             <!-- ACCEPT -->
                             <a href="<?= base_url('TRS/accept_ticket/' . $value['ticket_id']) ?>"
@@ -197,7 +211,7 @@ $this->load->view('Layout/Header');
                               onclick="history(<?= $value['ticket_id'] ?>)">History</a><br>
 
                           <?php } elseif (
-                            $value['status'] == 'in_progress'
+                            $value['status_id'] == 2
                             && $value['assigned_engineer_id'] == $user_id
                           ) { ?>
 
@@ -241,7 +255,7 @@ $this->load->view('Layout/Header');
                         <!-- ================= IT HEAD ================= -->
                         <?php if ($role_id == 3) { ?>
 
-                          <?php if ($value['status'] == 'open') { ?>
+                          <?php if ($value['status_id'] == 1) { ?>
                             <a href="<?= base_url('TRS/accept_ticket/' . $value['ticket_id']) ?>"
                               class="btn btn-sm btn-success mb-1">Accept</a><br>
 
@@ -252,7 +266,7 @@ $this->load->view('Layout/Header');
                               class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
                               onclick="history(<?= $value['ticket_id'] ?>)">History</a><br>
 
-                          <?php } elseif ($value['status'] == 'in_progress' || ($value['status'] == 'resolved')) { ?>
+                          <?php } elseif ($value['status_id'] == 2 || ($value['status_id'] == 3)) { ?>
 
                             <a class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#editModal"
                               onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
@@ -312,7 +326,7 @@ $this->load->view('Layout/Header');
 <form id="createForm">
   <div class="modal fade" id="createModal">
     <div class="modal-dialog">
-      <div class="modal-content bg-info">
+      <div class="modal-content bg-light">
         <div class="modal-header">
           <h4 class="modal-title">Add Ticket</h4>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -415,9 +429,9 @@ $this->load->view('Layout/Header');
 
               <div class="form-group">
                 <label>Status</label>
-                <select name="status" id="edit_status_dev" class="form-control">
-                  <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
+                <select name="status_id" id="edit_status_dev" class="form-control">
+                  <option value="2">In Progress</option>
+                  <option value="3">Resolved</option>
                 </select>
               </div>
             </div>
@@ -438,10 +452,10 @@ $this->load->view('Layout/Header');
 
               <div class="form-group">
                 <label>Status</label>
-                <select name="status" id="edit_status_admin" class="form-control">
-                  <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
+                <select name="status_id" id="edit_status_admin" class="form-control">
+                  <option value="2">In Progress</option>
+                  <option value="3">Resolved</option>
+                  <option value="4">Closed</option>
                 </select>
               </div>
             </div>
@@ -474,7 +488,7 @@ $this->load->view('Layout/Header');
 
       <div class="modal-body" id="historyContainer">
         <input type="hidden" name="ticket_id" id="history_ticket_id">
-
+      Please Wait
 
       </div>
 

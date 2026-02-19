@@ -30,21 +30,67 @@
 
 <form action="<?= base_url('check') ?>" method="post">
       
-         <div class="input-group mb-3">
-          <input type="email" class="form-control" placeholder="Email" name="email">
-          <div class="input-group-append">
-            <div class="input-group-text">
-              <span class="fas fa-envelope"></span>
-            </div>
-          </div>
-        </div>
-          <!-- /.col -->
-          <div class="col-4">
-            <button type="submit" class="btn btn-primary btn-block" onclick="return confirm('Security code is send to your mail...');">Reset</button>
-          </div>
-          <!-- /.col -->
-        </div>
+        <input type="email" id="email" name="email" class="form-control">
+<div id="email-msg" style="display:block;margin-top:5px;"></div>
+
+<button type="button" 
+        class="btn btn-secondary"
+        onclick="history.back()">
+    ← Back
+</button>
+
+<button type="submit" id="submit-btn" style="float:right;" class="btn btn-primary" disabled>
+    Send Reset Link
+</button>
+
+
+
       </form>
+      
+<script>
+
+
+  document.querySelector('#email').addEventListener('blur', function() {
+
+    let email = this.value;
+
+    fetch("Auth/check_email_status_ajax", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: "email=" + encodeURIComponent(email)
+    })
+    .then(res => res.json())
+    .then(response => {
+
+        let msg = document.getElementById("email-msg");
+        let btn = document.getElementById("submit-btn");
+
+     if(response.status === "NotFound"){
+
+ //   msg.innerText = "User not registered. You can continue.";
+    msg.innerText = "Account verified ✔";
+    msg.style.color = "green";
+
+    btn.disabled = false;   // ✅ Enable
+
+}
+         else if(response.status !== "Active"){
+            msg.innerText = "Account not activated yet";
+            msg.style.color = "orange";
+            btn.disabled = true;
+        }
+        else{
+            msg.innerText = "Account verified ✔";
+            msg.style.color = "green";
+            btn.disabled = false;
+        }
+    });
+
+});
+
+</script>
    </body>
 </html>
 
