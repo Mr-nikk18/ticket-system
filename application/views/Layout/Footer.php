@@ -14,7 +14,7 @@
 </div>
 <!-- ./wrapper -->
 
-<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
 
 <!-- jQuery -->
 <script src="<?= base_url() ?>assets/plugins/jquery/jquery.min.js"></script>
@@ -49,7 +49,9 @@
 <!-- AdminLTE for demo purposes -->
 <script src="<?= base_url() ?>assets/dist/js/demo.js"></script>
 <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
-<script src="<?= base_url() ?>assets/dist/js/pages/dashboard.js"></script>
+<script>
+var allowedTransitions = <?= json_encode($permissions); ?>;
+</script>
 <script>
     setTimeout(function () {
         document.querySelectorAll('.flash-msg').forEach(function (el) {
@@ -109,12 +111,13 @@ $(function () {
 </script>
 <?php } ?>
 
-
-
-
 <script>
 $(document).ready(function(){
-  $('#example1').DataTable();
+
+    if ($.fn.DataTable && $('#example1').length) {
+        $('#example1').DataTable();
+    }
+
 });
   </script>
 <script>
@@ -136,7 +139,8 @@ $('#createForm').submit(function(e){
   // location.reload();
     },
     error: function(){
-      alert('error');
+      //alert('error');
+       window.location.href = "<?= base_url('TRS/list') ?>";
     }
   });
 });
@@ -144,10 +148,7 @@ $('#createForm').submit(function(e){
 <script>
 function editFun(ticket_id){
 
-  // hide all role sections
   $('.role-section').hide();
-
-  // clear old values (IMPORTANT)
   $('#editForm')[0].reset();
 
   $.ajax({
@@ -157,6 +158,7 @@ function editFun(ticket_id){
     dataType: "json",
 
     success: function(res){
+
       if(!res.status){
         alert(res.msg);
         return;
@@ -165,10 +167,44 @@ function editFun(ticket_id){
       let role = <?= (int)$this->session->userdata('role_id') ?>;
       let t = res.data;
 
-      // common
+      // COMMON FIELDS
       $('#edit_ticket_id').val(t.ticket_id);
       $('#edit_title').val(t.title);
       $('#edit_description').val(t.description);
+
+      // 🔥 CLEAR OLD TASKS
+      let wrapper = $('#editTaskWrapper');
+      wrapper.html('');
+
+      // 🔥 APPEND TASKS
+      if(res.tasks && res.tasks.length > 0){
+
+        $.each(res.tasks, function(i, task){
+
+          wrapper.append(`
+            <div class="input-group mb-2">
+              <input type="text" name="tasks[]" 
+                     class="form-control"
+                     value="${task.task_title}">
+              <div class="input-group-append">
+                <button type="button" 
+                        class="btn btn-danger removeTask">X</button>
+              </div>
+            </div>
+          `);
+
+        });
+
+      } else {
+
+        wrapper.append(`
+          <div class="input-group mb-2">
+            <input type="text" name="tasks[]" 
+                   class="form-control"
+                   placeholder="Enter Task">
+          </div>
+        `);
+      }
 
       // USER
       if(role === 1){
@@ -181,14 +217,10 @@ function editFun(ticket_id){
         $('#edit_status_dev').val(t.status_id);
       }
 
-      // ADMIN / IT HEAD
+      // ADMIN
       if(role === 3){
-
-      
         $('#adminSection').show();
-  
-  $('#edit_assigned').html(options);
-$('#edit_assigned').val(t.assigned_engineer_id);
+        $('#edit_assigned').val(t.assigned_engineer_id);
         $('#edit_status_admin').val(t.status_id);
       }
 
@@ -197,7 +229,6 @@ $('#edit_assigned').val(t.assigned_engineer_id);
   });
 }
 </script>
-
 
 
 <script>
@@ -260,6 +291,29 @@ function assign(ticket_id) {
                 modal.find('#assign_ticket_id').val(res.data.ticket_id);
                 modal.find('#edit_title').val(res.data.title);
                 modal.find('#edit_description').val(res.data.description);
+          // ===== BUILD TASKS =====
+        let taskWrapper = modal.find('#taskWrapper');
+        taskWrapper.empty();
+
+        if (res.tasks && res.tasks.length > 0) {
+
+    res.tasks.forEach(function(task){
+
+        let badge = task.is_completed == "1"
+            ? '<span class="badge bg-success ms-2">Completed</span>'
+            : '<span class="badge bg-warning ms-2">Pending</span>';
+
+        taskWrapper.append(`
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                <span>${task.task_title}</span>
+                ${badge}
+            </div>
+        `);
+    });
+
+        } else {
+            taskWrapper.append(`<div class="text-muted">No Tasks</div>`);
+        }
                   // build developers
         let options = '<option value="">-- Select Developer --</option>';
         options += `<option value="<?= $this->session->userdata('user_id') ?>">Assign to Me</option>`;
@@ -324,6 +378,30 @@ function reassign(ticket_id) {
                 modal.find('#assign_ticket_id').val(res.data.ticket_id);
                 modal.find('#edit_title').val(res.data.title);
                 modal.find('#edit_description').val(res.data.description);
+                // ===== BUILD TASKS =====
+        let taskWrapper = modal.find('#taskWrapper');
+        taskWrapper.empty();
+
+        if (res.tasks && res.tasks.length > 0) {
+
+            res.tasks.forEach(function(task){
+
+                let badge = task.is_completed == "1"
+                    ? '<span class="badge bg-success ms-2">Completed</span>'
+                    : '<span class="badge bg-warning ms-2">Pending</span>';
+
+                taskWrapper.append(`
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                        <span>${task.task_title}</span>
+                        ${badge}
+                    </div>
+                `);
+            });
+
+        } else {
+            taskWrapper.append(`<div class="text-muted">No Tasks</div>`);
+        }
+
                   // build developers
         let options = '<option value="">-- Select Developer --</option>';
         
@@ -357,23 +435,51 @@ function openLeaveModal(ticket_id) {
         type: "POST",
         data: { ticket_id: ticket_id },
         dataType: "json",
-        success: function (res) {
+    success: function (res) {
 
-            if (!res.status) {
-                alert('Unable to fetch ticket details');
-                return;
-            }
-
-            const modal = $('#leaveModal');
-
-            modal.find('#leave_ticket_id').val(res.data.ticket_id);
-            modal.find('#leave_title').val(res.data.title);
-            modal.find('#leave_description').val(res.data.description);
-
-            modal.find('#leave_reason').val('');
-
-            modal.modal('show');
+        if (!res.status) {
+            alert('Unable to fetch ticket details');
+            return;
         }
+
+        const modal = $('#leaveModal');
+
+        modal.find('#leave_ticket_id').val(res.data.ticket_id);
+        modal.find('#leave_title').val(res.data.title);
+        modal.find('#leave_description').val(res.data.description);
+        modal.find('#leave_reason').val('');
+
+        let taskWrapper = modal.find('#taskWrapper');
+        taskWrapper.empty();
+
+        // 🔥 CORRECT PROPERTY
+        if (res.tasks && res.tasks.length > 0) {
+
+            res.tasks.forEach(function(task){
+                taskWrapper.append(`
+                    <div class="input-group mb-2">
+                        <input type="text"
+                            class="form-control"
+                            value="${task.task_title}"
+                            readonly>
+                    </div>
+                `);
+            });
+
+        } else {
+
+            taskWrapper.append(`
+                <div class="input-group mb-2">
+                    <input type="text"
+                        class="form-control"
+                        value="No Tasks"
+                        readonly>
+                    </div>
+            `);
+        }
+
+        modal.modal('show');
+    }
     });
 }
 
@@ -381,6 +487,8 @@ function openLeaveModal(ticket_id) {
 
 $(document).on('submit', '#leaveForm', function (e) {
     e.preventDefault();
+    submitbtn.prop('disabled', true).text('Processing...');
+
     $.ajax({
         url: "<?= base_url('TRS/do_leave_ajax') ?>",
         type: "POST",
@@ -390,10 +498,12 @@ $(document).on('submit', '#leaveForm', function (e) {
 
             if (!res.status) {
                 alert(res.msg);
+                 submitbtn.prop('disabled', false).text('leave');
                 return;
             }
 
             $('#leaveModal').modal('hide');
+            submitbtn.prop('disabled', false).text('Leave');
             alert('Ticket left successfully');
             location.reload();
         }
@@ -403,27 +513,62 @@ $(document).on('submit', '#leaveForm', function (e) {
 
 <script>
 $(document).on('submit', '#reassignForm', function(e){
-  e.preventDefault();
+    e.preventDefault();
 
-  $.ajax({
-    url: "<?= base_url('TRS/do_reassign_ajax') ?>",
-    type: "POST",
-    data: $(this).serialize(),
-    dataType: "json",
+    let form = $(this);
+    let submitBtn = form.find('button[type="submit"]');
 
-    success: function(res){
-      if(!res.status){
-        alert(res.msg);
-        return;
-      }
+    submitBtn.prop('disabled', true).text('Processing...');
 
-      $('#reassignModal').modal('hide');
-      alert('Reassigned successfully');
-      location.reload();
-    }
-  });
+    $.ajax({
+        url: "<?= base_url('TRS/do_reassign_ajax') ?>",
+        type: "POST",
+        data: form.serialize(),
+        dataType: "json",
+
+        success: function(res){
+
+            if(!res.status){
+                alert(res.msg);
+                submitBtn.prop('disabled', false).text('Reassign');
+                return;
+            }
+
+            let taskWrapper = $('#taskWrapper');
+            taskWrapper.empty();
+
+            if (res.tasks && res.tasks.length > 0) {
+
+                res.tasks.forEach(function(task){
+
+                    let badge = task.is_completed == "1"
+                        ? '<span class="badge bg-success ms-2">Completed</span>'
+                        : '<span class="badge bg-warning ms-2">Pending</span>';
+
+                    taskWrapper.append(`
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                            <span>${task.task_title}</span>
+                            ${badge}
+                        </div>
+                    `);
+                });
+
+            } else {
+                taskWrapper.append(`<div class="text-muted">No Tasks</div>`);
+            }
+
+            alert('Reassigned successfully');
+            submitBtn.prop('disabled', false).text('Reassign');
+            location.reload();
+            
+        },
+
+        error: function(){
+            alert('Something went wrong');
+            submitBtn.prop('disabled', false).text('Reassign');
+        }
+    });
 });
-
 </script>
 
 <!--add developer/Admin-->
@@ -581,89 +726,894 @@ function prevPage() {
 showPage(); // initial load
 
 </script>
-
 <script>
-$(".kanban-column").sortable({
-    connectWith: ".kanban-column",
-    placeholder: "ui-state-highlight",
-    forcePlaceholderSize: true,
-    tolerance: "pointer",
-    cursor: "grabbing",
-    opacity: 0.8,
-    revert: 150,
 
-    start: function (event, ui) {
+var currentRoleId = <?= $this->session->userdata('role_id'); ?>;
 
-        ui.item.addClass("dragging");
+/* ================================
+   INIT KANBAN SORTABLE FUNCTION
+================================ */
 
-        var original_column = ui.item.closest(".kanban-column");
-        ui.item.data("original-column", original_column);
-    },
+function initKanbanSortable() {
 
-    stop: function (event, ui) {
-        ui.item.removeClass("dragging");
-    },
+    // Destroy old sortable if exists
+    if ($(".kanban-column").hasClass("ui-sortable")) {
+        $(".kanban-column").sortable("destroy");
+    }
 
-    receive: function(event, ui){
+    if (currentRoleId != 1) {
 
-        var from_status = parseInt(
-            ui.item.data("original-column").data("status")
-        );
+        $(".kanban-column").sortable({
+            connectWith: ".kanban-column",
+            placeholder: "ui-state-highlight",
+            forcePlaceholderSize: true,
+            tolerance: "pointer",
+            cursor: "grabbing",
+            opacity: 0.8,
+            revert: 150,
 
-        var to_status = parseInt($(this).data("status"));
+            start: function (event, ui) {
+                ui.item.addClass("dragging");
+                ui.item.data("from-status", $(this).data("status"));
+            },
 
-        var allowed = false;
+            stop: function (event, ui) {
+                ui.item.removeClass("dragging");
+            },
 
-        if(from_status === 1 && to_status === 2) allowed = true;
-        if(from_status === 2 && to_status === 3) allowed = true;
-        if(from_status === 3 && to_status === 2) allowed = true;
+            update: function (event, ui) {
 
-        if(!allowed){
-            $(ui.item.data("original-column")).sortable("cancel");
-        }
-    },
+                var newColumn = $(this);
+                var to_status = parseInt(newColumn.data("status"));
+                var from_status = parseInt(ui.item.data("from-status"));
 
-    update: function (event, ui) {
+                var allowed = true;
+                
+                // ❌ Block Open → Closed
+            if (from_status === 1 && to_status === 4) {
+                //$(this).sortable("cancel");
+                allowed=false;
+                
+            }
+                // ❌ Block Open → Resolved
+            if (from_status === 1 && to_status === 3) {
+                //$(this).sortable("cancel");
+                allowed=false;
+                
+            }
+                // Block In Process → Open
+                if (from_status === 2 && to_status === 1) {
+                    allowed = false;
+                }
 
-        // Only run when moved between columns
-        if(!ui.sender) return;
+                // Block move to Resolved if not allowed
+                if (to_status === 3 && ui.item.data("can-resolve") != 1) {
+                    allowed = false;
+                }
 
-        var original_column = ui.item.data("original-column");
+                if (!allowed) {
+                    if (ui.sender) {
+                        $(ui.sender).sortable("cancel");
+                    } else {
+                        $(this).sortable("cancel");
+                    }
+                    return;
+                }
 
-        var from_status = parseInt(original_column.data("status"));
-        var to_status = parseInt(
-            ui.item.closest(".kanban-column").data("status")
-        );
+                var order = [];
 
-        if(from_status === to_status) return;
+                newColumn.children(".ticket-card").each(function(index){
+                    order.push({
+                        ticket_id: $(this).data("id"),
+                        board_position: index
+                    });
+                });
 
-        var column = ui.item.closest(".kanban-column");
-        var status_id = to_status;
-
-        var order = [];
-
-        column.children(".ticket-card").each(function(index){
-            order.push({
-                ticket_id: $(this).data("id"),
-                board_position: index
-            });
+                $.ajax({
+                    url: "update_board_position",
+                    type: "POST",
+                    dataType: "json",
+                    data: {
+                        status_id: to_status,
+                        order: JSON.stringify(order)
+                    }
+                });
+            }
         });
 
+    } else {
+    $(".kanban-column").sortable({
+        connectWith: ".kanban-column",
+        placeholder: "ui-state-highlight",
+        tolerance: "pointer",
+
+        start: function (event, ui) {
+            ui.item.data("from-status", $(this).data("status"));
+        },
+
+        update: function (event, ui) {
+
+            var from_status = parseInt(ui.item.data("from-status"));
+            var to_status   = parseInt($(this).data("status"));
+
+            var ticket_id = ui.item.data("id");
+
+            // 🔒 Allow only Closed → Open
+            if (!(from_status === 4 && to_status === 1)) {
+                $(this).sortable("cancel");
+                
+            }
+            // ❌ Block Open → Closed
+            if (from_status === 1 && to_status === 4) {
+                $(this).sortable("cancel");
+                
+            }
+            $.ajax({
+                url: base_url + "TRS/reopen_ticket",
+                type: "POST",
+                data: {
+                    ticket_id: ticket_id
+                },
+                success: function(res){
+                    //location.reload();
+                }
+            });
+        }
+    });
+}
+
+    // Disable Closed column
+    $(".kanban-column").each(function(){
+        if($(this).data("status") == 4 && currentRoleId == 2){
+            $(this).sortable("disable");
+        }
+    });
+}
+
+
+/* ================================
+   PAGE LOAD
+================================ */
+
+$(document).ready(function(){
+    initKanbanSortable();
+});
+
+
+/* ================================
+   REFRESH BUTTON
+================================ */
+
+$(document).on('click', '#refreshBoard', function(){
+
+    var btn = $(this);
+    btn.html('<i class="fas fa-spinner fa-spin"></i>');
+
+    $.ajax({
+        url: window.location.href,
+        type: "GET",
+        success: function(response){
+
+            var newContent = $(response).find('#mainContent').html();
+            $('#mainContent').html(newContent);
+
+            // 🔥 IMPORTANT
+            initKanbanSortable();
+        },
+        complete: function(){
+            btn.html('🔄 Refresh');
+        }
+    });
+
+});
+
+</script>
+<script>
+
+var currentTicketId = null;
+var base_url = "<?= base_url(); ?>";
+
+/* =========================================
+   TICKET CLICK → LOAD DETAILS
+========================================= */
+
+$(document).on('click', '.ticket-card', function() {
+
+    var ticket_id = $(this).data('id');
+
+    $('#ticketModal').modal('show');
+    $('#ticketDetailContent').html("Loading...");
+
+    $.ajax({
+        url: base_url + "TRS/get_ticket_details",
+        type: "POST",
+        data: { ticket_id: ticket_id },
+        dataType: "json",
+        success: function(response) {
+           
+            var ticket = response.ticket;
+            var tasks  = response.tasks;
+            console.log(tasks);
+            console.log("Slug:", ticket.status_slug);
+    console.log("Role:", currentRoleId);
+            currentTicketId = ticket.ticket_id;
+
+            /* ---------- BUILD MODAL HTML ---------- */
+            var tasks_title = '';
+
+if(tasks && tasks.length > 0){
+    tasks.forEach(function(t){
+        tasks_title += `<div>• ${t.task_title}</div>`;
+    });
+} else {
+    tasks_title = `<div class="text-muted">No tasks added</div>`;
+}
+
+            var html = `
+            <div class="px-3 py-2">
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">
+                        <span class="badge badge-secondary mr-2">
+                            #${ticket.ticket_id}
+                        </span>
+                        ${ticket.title}
+                    </h4>
+                    <span class="badge badge-success px-3 py-2">
+                        ${ticket.status_name}
+                    </span>
+                </div>
+
+                <hr>
+
+                <div class="mb-2">
+                    <p class="text-muted">Description</p>
+                   <h6 class="text-muted mt-3">Tasks</h6>
+${tasks_title}
+                </div>
+
+                <div class="mb-3 text-muted">
+                    <small>
+                        <strong>Handled By:</strong>
+                        ${ticket.handled_by_name 
+                            ? ticket.handled_by_name 
+                            : 'Not Assigned'}
+                    </small>
+                </div>
+
+                <div class="progress mb-2" style="height:18px;">
+                    <div id="taskProgressBar"
+                         class="progress-bar bg-success"
+                         style="width:0%">
+                    </div>
+                </div>
+
+                <small id="taskRatio" class="text-muted"></small>
+
+                <hr>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">
+                Tasks <span id="taskCount">(0/0)</span>
+            </h5>
+            <button class="btn btn-sm btn-primary" id="addTaskBtn">
+                + Add Task
+            </button>
+                </div>
+
+                        <div id="taskSection"></div>
+
+                    </div>
+                    `;
+
+                    $('#ticketDetailContent').html(html);
+                    // 🔥 SHOW CONFIRMATION ONLY FOR USER WHEN STATUS = RESOLVED
+            if(ticket.status_slug === 'resolved' && currentRoleId == 1){
+
+            $('#ticketDetailContent').prepend(`
+                <div class="alert alert-warning d-flex justify-content-between align-items-center">
+                    <span><strong>Is your issue resolved?</strong></span>
+                    <div>
+                <button class="btn btn-success btn-sm confirm-btn" data-answer="yes">Yes</button>
+                <button class="btn btn-danger btn-sm confirm-btn" data-answer="no">No</button>
+                    </div>
+                </div>
+            `);
+
+}
+
+            /* ---------- RENDER TASKS ---------- */
+
+         tasks.forEach(function(task) {
+
+                var taskHtml = `
+                <div class="task-card mb-2" data-task-id="${task.task_id}">
+
+                    <div class="d-flex justify-content-between align-items-center">
+
+                        <div class="d-flex align-items-center">
+
+                            <input type="checkbox"
+                                   class="task-checkbox mr-2"
+                                   data-id="${task.task_id}"
+                                   ${task.is_completed == 1 ? 'checked' : ''}
+                                   ${currentRoleId == 1 ? 'disabled' : ''}>
+
+                            <span class="task-title"
+                                  data-id="${task.task_id}">
+                                  ${task.task_title}
+                            </span>
+                        </div>
+                        
+                       <div>
+                  <button class="btn btn-sm btn-light edit-task"
+                          data-id="${task.task_id}">
+                      ✏
+                  </button>
+              </div></div>
+                 
+
+                    <!-- CHAT BOX -->
+            <div class="chat-box mb-2" id="chat-${task.task_id}"></div>
+
+            <!-- CHAT INPUT -->
+            <div class="input-group">
+                <input type="text"
+                      class="form-control chat-input"
+                      data-task-id="${task.task_id}"
+                      placeholder="Type message...">
+                <div class="input-group-append">
+                    <button class="btn btn-primary send-btn"
+                            data-task-id="${task.task_id}">
+                        Send
+                    </button>
+                </div>
+            </div>
+                </div>
+                `;
+
+                $('#taskSection').append(taskHtml);
+
+                if(task.is_completed == 1) {
+                    $('#taskSection .task-card:last')
+                        .addClass('task-completed');
+                }
+
+                loadTaskComments(task.task_id);
+            });
+               // 🔥 SET INITIAL TASK COUNT DIRECTLY FROM FETCHED DATA
+        var totalTasks = tasks.length;
+        var completedTasks = tasks.filter(t => Number(t.is_completed) === 1).length;
+
+        $('#taskCount').text('(' + completedTasks + '/' + totalTasks + ')');
+                
+
+            enableTaskSortable();
+            updateProgressBar();
+        }
+    });
+});
+
+/* =========================================
+   SORTABLE TASKS
+========================================= */
+
+function enableTaskSortable() {
+
+    if ($("#taskSection").hasClass("ui-sortable")) {
+        $("#taskSection").sortable("destroy");
+    }
+
+    $("#taskSection").sortable({
+        placeholder: "task-placeholder",
+        cursor: "grab",
+        opacity: 0.9,
+        revert: 150,
+        tolerance: "pointer",
+        cancel: "input,button",
+
+        update: function() {
+
+            var order = [];
+
+            $('#taskSection .task-card').each(function(index) {
+                order.push({
+                    task_id: $(this).data('task-id'),
+                    position: index + 1
+                });
+            });
+
+            $.post(base_url + "TRS/update_task_position", { order: order });
+        }
+    });
+}
+
+/* =========================================
+   UPDATE PROGRESS
+========================================= */
+
+function updateProgressBar(){
+
+    var total = $('#taskSection .task-checkbox').length;
+    var completed = $('#taskSection .task-checkbox:checked').length;
+
+    if(total == 0){
+        $('#taskProgressBar')
+            .css('width','0%')
+            .text('0%');
+        $('#taskRatio').text('0/0');
+        return;
+    }
+
+    var percent = Math.round((completed / total) * 100);
+
+    $('#taskProgressBar')
+        .css('width', percent + '%')
+        .text(percent + '%');
+
+    $('#taskRatio').text(completed + '/' + total);
+    $('#taskCount').text('(' + completed + '/' + total + ')');
+}
+/* =========================================
+   TASK CHECKBOX
+========================================= */
+
+$(document).on('change', '.task-checkbox', function(){
+
+    var checkbox = $(this);
+    var task_id = checkbox.data('id');
+    var status = checkbox.is(':checked') ? 1 : 0;
+
+     // 🔥 UI toggle immediately
+    checkbox.closest('.task-card')
+        .toggleClass('task-completed', status);
+
+    updateProgressBar(); // live update
+
+    $.ajax({
+        url: base_url + "TRS/update_task_status",
+        type: "POST",
+        dataType: "json",
+        data: {
+            task_id: task_id,
+            is_completed: status
+        },
+        success: function(response){
+
+            if(response.success){
+
+                var ticketCard = $('.ticket-card[data-id="'+response.ticket_id+'"]');
+
+                // 🔥 Update both attr and jQuery cache
+                ticketCard.attr('data-can-resolve', response.can_resolve);
+                ticketCard.data('can-resolve', Number(response.can_resolve));
+
+                // Optional UI feedback
+                if(response.can_resolve == 1){
+                    ticketCard.addClass('ready-to-resolve');
+                } else {
+                    ticketCard.removeClass('ready-to-resolve');
+                }
+
+            } else {
+                alert("Update failed");
+            }
+
+        },
+        error: function(){
+            alert("Server error");
+        }
+    });
+
+});
+/* =========================================
+   ADD TASK
+========================================= */
+
+$(document).on('click', '#addTaskBtn', function(){
+
+    if($('#newTaskInput').length) return;
+
+    $('#taskSection').prepend(`
+        <div id="newTaskWrapper" class="mb-2">
+            <input type="text"
+                   id="newTaskInput"
+                   class="form-control"
+                   placeholder="Enter task and press Enter">
+        </div>
+    `);
+
+    $('#newTaskInput').focus();
+});
+
+$(document).on('keypress', '#newTaskInput', function(e){
+
+    if(e.which == 13){
+
+        var taskTitle = $(this).val().trim();
+        if(taskTitle == '') return;
+
         $.ajax({
-            url: "update_board_position",
+            url: base_url + "TRS/add_task",
             type: "POST",
             dataType: "json",
             data: {
-                status_id: status_id,
-                order: JSON.stringify(order) // safer for CI
+                ticket_id: currentTicketId,
+                task_title: taskTitle
+            },
+            success: function(response){
+
+                var task = response.task;
+
+                $('#newTaskWrapper').remove();
+
+                var taskHtml = `
+                <div class="task-card mb-2 d-flex align-items-center" data-task-id="${task.task_id}>
+                    <input type="checkbox"
+                           class="task-checkbox mr-2"
+                           data-id="${task.task_id}">
+                    <span class="task-title"
+                          data-id="${task.task_id}">
+                          ${task.task_title}
+                    </span>
+                </div>
+                `;
+
+                $('#taskSection').append(taskHtml);
+                updateProgressBar();
             }
         });
     }
 });
 
+
+
+/* =========================================
+   TASK COMMENTS
+========================================= */
+
+$(document).on("keypress", ".task-comment-input", function(e){
+
+    if(e.which == 13){
+
+        var input = $(this);
+        var taskId = input.data("task-id");
+        var comment = input.val().trim();
+
+        if(comment == "") return;
+
+        $.post(base_url + "dashboard/add_task_comment", {
+            task_id: taskId,
+            comment: comment
+        }, function(){
+
+            input.val("");
+            loadTaskComments(taskId);
+        });
+    }
+});
+
+function loadTaskComments(taskId){
+
+    $.post(base_url + "dashboard/load_task_comments", {
+        task_id: taskId
+    }, function(response){
+
+        $("#comments-" + taskId).html(response);
+    });
+}
+
+$(document).on('click','.confirm-btn',function(){
+
+    var answer = $(this).data('answer');
+
+    $.ajax({
+        url: base_url + "TRS/confirm_resolution",
+        type:"POST",
+        dataType:"json",
+        data:{
+            ticket_id: currentTicketId,
+            answer: answer
+        },
+        success:function(res){
+            if(res.success){
+                $('#ticketModal').modal('hide');
+                location.reload();
+            }
+        }
+    });
+
+});
+
 </script>
+<script>
+
+$(document).ready(function(){
+
+  // CREATE MODAL - Add Task
+  $('#addTaskFieldCreate').on('click', function(){
+    $('#createTaskWrapper').append(`
+      <div class="input-group mb-2">
+        <input type="text" name="tasks[]" 
+               class="form-control" 
+               placeholder="Enter Task">
+        <div class="input-group-append">
+          <button type="button" 
+                  class="btn btn-danger removeTask">X</button>
+        </div>
+      </div>
+    `);
+  });
 
 
+  // EDIT MODAL - Add Task
+  $('#addTaskFieldEdit').on('click', function(){
+    $('#editTaskWrapper').append(`
+      <div class="input-group mb-2">
+        <input type="text" name="tasks[]" 
+               class="form-control" 
+               placeholder="Enter Task">
+        <div class="input-group-append">
+          <button type="button" 
+                  class="btn btn-danger removeTask">X</button>
+        </div>
+      </div>
+    `);
+  });
 
+
+  // REMOVE TASK (Works for both modals)
+  $(document).on('click', '.removeTask', function(){
+    if ($(this).closest('.input-group').siblings('.input-group').length > 0) {
+      $(this).closest('.input-group').remove();
+    }
+  });
+
+});
+
+$(document).on('click', '.edit-task', function(){
+
+    var taskId = $(this).data('id');
+
+    var titleSpan = $('.task-title[data-id="'+taskId+'"]');
+    var currentText = titleSpan.text().trim();
+
+    // Input field bana do
+    titleSpan.replaceWith(`
+        <input type="text"
+               class="form-control form-control-sm edit-input"
+               data-id="${taskId}"
+               value="${currentText}">
+    `);
+
+    $('.edit-input[data-id="'+taskId+'"]').focus();
+});
+
+$(document).on('keypress', '.edit-input', function(e){
+
+    if(e.which == 13){
+
+        var input = $(this);
+        var taskId = input.data('id');
+        var newTitle = input.val().trim();
+
+        if(newTitle == '') return;
+
+        $.post(base_url + "TRS/update_task_title", {
+            task_id: taskId,
+            task_title: newTitle
+        }, function(){
+
+            input.replaceWith(`
+                <span class="task-title"
+                      data-id="${taskId}">
+                      ${newTitle}
+                </span>
+            `);
+
+        });
+    }
+});
+
+$(document).on('click', '.send-btn', function(){
+
+    var taskId = $(this).data('task-id');
+    var input = $('.chat-input[data-task-id="'+taskId+'"]');
+    var message = input.val().trim();
+
+    if(message == '') return;
+
+    $.post(base_url + "dashboard/add_task_comment", {
+        task_id: taskId,
+        comment: message
+    }, function(){
+
+        input.val('');
+        loadTaskComments(taskId); // 🔥 SAME FUNCTION
+    });
+});
+$(document).on('keypress', '.chat-input', function(e){
+
+    if(e.which == 13){
+        $(this).siblings('.input-group-append')
+               .find('.send-btn')
+               .click();
+    }
+});
+
+function loadTaskComments(taskId){
+
+    $.post(base_url + "dashboard/load_task_comments", {
+        task_id: taskId
+    }, function(response){
+
+        $('#chat-'+taskId).html(response);
+
+        var box = $('#chat-'+taskId);
+        box.scrollTop(box[0].scrollHeight);
+    });
+}
+
+
+</script>
+<script>
+var chatInterval;
+
+$('#ticketModal').on('shown.bs.modal', function(){
+
+    chatInterval = setInterval(function(){
+
+        $('.task-card').each(function(){
+            var taskId = $(this).data('task-id');
+            loadTaskComments(taskId);
+        });
+
+    }, 3000);
+
+});
+
+$('#ticketModal').on('hidden.bs.modal', function(){
+    clearInterval(chatInterval);
+});
+</script>
+<script>
+
+function loadNotifications(){
+
+    $.ajax({
+        url: "<?= base_url('TRS/get_notifications') ?>",
+        type: "GET",
+        dataType: "json",
+        success: function(res){
+
+            let badge = $('#notificationBadge');
+            let list = $('#notificationList');
+            let header = $('#notificationHeader');
+
+            list.empty();
+
+            if(res.count > 0){
+
+                badge.text(res.count).show();
+                header.text(res.count + " Notifications");
+
+                res.notifications.forEach(function(item){
+
+                    list.append(`
+                        <a href="<?= base_url('TRS/view/') ?>${item.ticket_id}"
+                           class="dropdown-item notification-item"
+                           data-id="${item.id}">
+                           
+                           <i class="fas fa-ticket-alt mr-2 text-primary"></i>
+                           ${item.message}
+                           
+                           <span class="float-right text-muted text-sm">
+                               ${item.created_at}
+                           </span>
+                        </a>
+                        <div class="dropdown-divider"></div>
+                    `);
+                });
+
+            } else {
+                badge.hide();
+                header.text("0 Notifications");
+
+                list.html(`
+                    <span class="dropdown-item text-muted text-center">
+                        No new notifications
+                    </span>
+                `);
+            }
+        }
+    });
+}
+
+
+// Mark as read
+$(document).on('click', '.notification-item', function(){
+
+    let id = $(this).data('id');
+
+    $.post("<?= base_url('TRS/mark_notification_read') ?>", {
+        id: id
+    });
+
+});
+
+
+// Auto Load
+loadNotifications();
+
+setInterval(function(){
+    loadNotifications();
+}, 3000);
+
+</script>
+<script>
+    // Add Task (Create Modal)
+$(document).on('click', '#addTaskFieldCreate', function () {
+
+    let taskField = `
+        <div class="input-group mb-2">
+            <input type="text" name="tasks[]" class="form-control" placeholder="Enter Task">
+            <div class="input-group-append">
+                <button type="button" class="btn btn-danger removeTask">X</button>
+            </div>
+        </div>
+    `;
+
+    $('#taskWrapper').append(taskField);
+});
+
+
+// Remove Task (Dynamic)
+$(document).on('click', '.removeTask', function () {
+
+    if ($('#taskWrapper .input-group').length > 0) {
+        $(this).closest('.input-group').remove();
+    }
+
+});
+
+
+    </script>
+    <script>
+function autoRefreshKanban(){
+
+    $.ajax({
+        url: base_url + "TRS/get_all_task_counts",
+        type: "GET",
+        dataType: "json",
+        success: function(response){
+
+            response.forEach(function(ticket){
+
+                var card = $('.ticket-card[data-id="'+ticket.ticket_id+'"]');
+
+                if(card.length){
+
+                    card.find('.task-count')
+                        .text(ticket.completed + " / " + ticket.total + " Completed");
+
+                }
+
+            });
+
+        }
+    });
+
+}
+
+$(document).ready(function(){
+
+    autoRefreshKanban(); // first load
+
+    setInterval(function(){
+        autoRefreshKanban();
+    }, 2000); // every 1 miniseconds
+
+});
+        </script>
 </body>
 </html>

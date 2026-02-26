@@ -1,7 +1,17 @@
 <?php
 class TRS_model extends CI_Model
 {
+        public function get_status_id($status_name)
+        {
+            $status = $this->db
+                ->select('status_id')
+                ->from('ticket_statuses')
+                ->where('LOWER(status_name)', strtolower($status_name))
+                ->get()
+                ->row_array();
 
+            return $status ? $status['status_id'] : 2;
+        }
 
     public function get_data_by_id($ticket_id)
     {
@@ -25,8 +35,50 @@ class TRS_model extends CI_Model
     /* -------- INSERT -------- */
     public function insert_ticket($data)
     {
-     $this->db->insert('tickets', $data);
+    $this->db->insert('tickets', $data);
+    return $this->db->insert_id();   // 🔥 Important
     }
+
+public function insert_tasks($ticket_id, $tasks)
+{
+    $position = 1;
+
+    foreach($tasks as $task){
+
+        if(trim($task) != ''){
+
+            $this->db->insert('ticket_tasks', [
+                'ticket_id' => $ticket_id,
+                'task_title' => $task,
+                'is_completed' => 0,
+                'position' => $position,
+                'created_by' => $this->session->userdata('user_id')
+            ]);
+
+            $position++;
+        }
+    }
+}
+public function add_insert_tasks($ticket_id, $tasks)
+{
+    $position = 1;
+
+    foreach($tasks as $task){
+
+        if(trim($task) != ''){
+
+            $this->db->insert('ticket_tasks', [
+                'ticket_id'   => $ticket_id,   // 🔥 THIS WAS MISSING
+                'task_title'  => $task,
+                'is_completed'=> 0,
+                'position'    => $position,
+                'created_by'  => $this->session->userdata('user_id')
+            ]);
+
+            $position++;
+        }
+    }
+}
 
     public function insert_assignment_history($data)
 {
@@ -36,7 +88,14 @@ public function insert_reassignment_history($data)
 {
     return $this->db->insert('ticket_assignment_history', $data);
 }
-
+public function get_tasks_by_ticket($ticket_id)
+{
+    return $this->db
+                ->where('ticket_id', $ticket_id)
+                ->order_by('position', 'ASC')
+                ->get('ticket_tasks')
+                ->result_array();
+}
 
     /* -------- GET SINGLE -------- */
     public function get_ticket($ticket_id)
@@ -79,11 +138,12 @@ public function insert_reassignment_history($data)
     public function get_user_tickets($user_id, $status = null)
 {
     $this->db
-        ->select('tickets.*, d.name AS assigned_engineer_name')
+        ->select('tickets.*, d.name AS assigned_engineer_name,GROUP_CONCAT(tt.task_title SEPARATOR "||") AS tasks')
         ->from('tickets')
         ->join('users d', 'd.user_id = tickets.assigned_engineer_id', 'left')
+        ->join('ticket_tasks tt', 'tt.ticket_id = tickets.ticket_id', 'left')
         ->where('tickets.user_id', $user_id)
-        ->where('tickets.deleted_at IS NULL');
+        ->where('tickets.deleted_at IS NULL')    ->group_by('tickets.ticket_id');
 
     if ($status) {
         $this->db->where('tickets.status_id', $status);
@@ -98,7 +158,7 @@ public function insert_reassignment_history($data)
     WHEN tickets.status_id = 1 THEN 3
     WHEN tickets.status_id = 4 THEN 4
     ELSE 5
-END
+    END
 
 
             
@@ -120,13 +180,15 @@ END
             tickets.*,
             u.name AS user_full_name,
             dept.department_name AS department_name,
-            d.name AS assigned_engineer_name
-        ')
+            d.name AS assigned_engineer_name,
+ GROUP_CONCAT(tt.task_title SEPARATOR "||") AS tasks        ')
         ->from('tickets')
         ->join('users u', 'u.user_id = tickets.user_id', 'left')
                 ->join('departments dept', 'dept.department_id = u.department_id', 'left')
         ->join('users d', 'd.user_id = tickets.assigned_engineer_id', 'left')
-        ->where('tickets.deleted_at IS NULL');
+        ->join('ticket_tasks tt', 'tt.ticket_id = tickets.ticket_id', 'left')
+        ->where('tickets.deleted_at IS NULL')
+         ->group_by('tickets.ticket_id');
 
     if ($status) {
         $this->db->where('tickets.status_id', $status);
@@ -148,7 +210,7 @@ END
     WHEN tickets.status_id = 1 THEN 3
     WHEN tickets.status_id = 4 THEN 4
     ELSE 5
-END
+ END
 
     ", '', false);
 
@@ -200,34 +262,40 @@ public function get_user_recent_tickets($user_id, $limit = 5)
 
 
     /* -------- DEV ACCEPTED -------- */
-    public function get_my_accepted_tickets($developer_id)
+public function get_my_accepted_tickets($developer_id)
 {
-    return $this->db
+    $tickets = $this->db
         ->select('
             tickets.*,
             u.name AS user_full_name,
             dept.department_name AS department_name,
-            d.name AS assigned_engineer_name
+            d.name AS assigned_engineer_name,
+            COUNT(tt.task_id) AS total_tasks,
+            SUM(CASE WHEN tt.is_completed = 1 THEN 1 ELSE 0 END) AS completed_tasks
         ')
         ->from('tickets')
         ->join('users u', 'u.user_id = tickets.user_id', 'left')
-         ->join('departments dept', 'dept.department_id = u.department_id', 'left')
+        ->join('departments dept', 'dept.department_id = u.department_id', 'left')
         ->join('users d', 'd.user_id = tickets.assigned_engineer_id', 'left')
+        ->join('ticket_tasks tt', 'tt.ticket_id = tickets.ticket_id', 'left')
         ->where('tickets.assigned_engineer_id', $developer_id)
-        ->where_in('tickets.status_id', [3, 2, 4])
-        ->order_by("
-            CASE
-            WHEN tickets.status_id = 2 THEN 1
-                WHEN tickets.status_id = 3 THEN 2
-                WHEN tickets.status_id = 4 THEN 3
-                ELSE 4
-            END
-        ", '', false)
+        ->where_in('tickets.status_id', [3,2,4])
+        ->group_by('tickets.ticket_id')
         ->order_by('tickets.ticket_id', 'DESC')
         ->get()
         ->result_array();
-}
 
+    // 🔥 Now attach tasks
+    foreach ($tickets as &$ticket) {
+
+        $ticket['tasks'] = $this->db
+            ->where('ticket_id', $ticket['ticket_id'])
+            ->get('ticket_tasks')
+            ->result_array();
+    }
+
+    return $tickets;
+}
 
     public function get_all_developers()
     {
@@ -323,24 +391,50 @@ public function check_status_permission($role_id, $from_status, $to_status)
                 ->where('role_id', $role_id)
                 ->where('from_status', $from_status)
                 ->where('to_status', $to_status)
+                ->where('allowed', 1)
                 ->get('status_permissions')
                 ->row();
 }
-
-public function get_tickets_by_status($status_id, $user_id)
+public function get_tickets_by_status($status_id)
 {
+    $role_id = $this->session->userdata('role_id');
+    $user_id = $this->session->userdata('user_id');
+
     $this->db->from('tickets');
     $this->db->where('status_id', $status_id);
 
-    // Agar status Open nahi hai
-    if($status_id != 1) {  
-        $this->db->where('assigned_engineer_id', $user_id);
+    // 👤 USER
+    if($role_id == 1){
+        $this->db->where('created_by', $user_id);
     }
+
+    // 👨‍💻 DEVELOPER
+    elseif($role_id == 2){
+
+        if($status_id != 1){
+            $this->db->where('assigned_engineer_id', $user_id);
+        }
+    }
+
+    // 🛠 ADMIN / IT HEAD → no filter
 
     return $this->db->get()->result();
 }
-
-
-
+public function get_unread_notifications($user_id)
+{
+    return $this->db
+        ->select('task_messages.id,
+                  task_messages.ticket_id,
+                  task_messages.message,
+                  task_messages.created_at,
+                  tickets.title')
+        ->join('tickets', 'tickets.ticket_id = task_messages.ticket_id')
+        ->where('receiver_id', $user_id)
+        ->where('is_read', 0)
+        ->order_by('task_messages.created_at', 'DESC')
+        ->limit(5)
+        ->get('task_messages')
+        ->result();
+}
 
 }

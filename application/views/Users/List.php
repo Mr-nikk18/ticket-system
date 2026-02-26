@@ -2,20 +2,9 @@
 $this->load->view('Layout/Header');
 ?>
 
-<?php if ($this->session->flashdata('error')): ?>
-  <div class="alert alert-danger alert-dismissible fade show text-center flash-msg" role="alert">
-    <?= $this->session->flashdata('error'); ?>
-  </div>
-<?php endif; ?>
-
-<?php if ($this->session->flashdata('success')): ?>
-  <div class="alert alert-success alert-dismissible fade show text-center flash-msg" role="alert">
-    <?= $this->session->flashdata('success'); ?>
-  </div>
-<?php endif; ?>
 
 <!-- Content Wrapper. Contains page content -->
-<div class="content-wrapper">
+<div class="content-wrapper" id="mainContent">
 
   <!-- Content Header (Page header) -->
   <section class="content-header">
@@ -40,33 +29,44 @@ $this->load->view('Layout/Header');
       <div class="row">
         <div class="col-12">
           <div class="card">
-            <div class="card-header d-flex align-items-center">
-        <h3 class="card-title mb-0">
-<?php
-if(isset($current_status) && $current_status){
+<div class="card-header">
 
-    switch((int)$current_status){
-        case 1: echo "Open Tickets"; break;
-        case 2: echo "In Process Tickets"; break;
-        case 3: echo "Resolved Tickets"; break;
-        case 4: echo "Closed Tickets"; break;
-        default: echo "All Tickets";
-    }
+    <div class="d-flex align-items-center">
 
-}else{
-    echo "All Tickets";
-}
-?>
-</h3>
+        <!-- LEFT SIDE -->
+        <h3 class="mb-0 font-weight-bold">
+            <?php
+            if(isset($current_status) && $current_status){
+                switch((int)$current_status){
+                    case 1: echo "Open Tickets"; break;
+                    case 2: echo "In Process Tickets"; break;
+                    case 3: echo "Resolved Tickets"; break;
+                    case 4: echo "Closed Tickets"; break;
+                    default: echo "All Tickets";
+                }
+            }else{
+                echo "All Tickets";
+            }
+            ?>
+        </h3>
 
+        <!-- PUSH RIGHT -->
+        <div class="ml-auto">
+            <button class="btn btn-secondary mr-2" id="refreshBoard">
+                🔄 Refresh
+            </button>
 
-              <?php if ($this->session->userdata('role_id') == 1) { ?>
-                <button type="button" data-toggle="modal" data-target="#createModal"
-                  class="btn btn-primary btn-sm ml-auto">
-                  Generate Ticket
-                  </a>
-                <?php } ?>
-            </div>
+            <button type="button"
+                    data-toggle="modal"
+                    data-target="#createModal"
+                    class="btn btn-primary btn-sm">
+                Generate Ticket
+            </button>
+        </div>
+
+    </div>
+
+</div>
 
 
             <!-- /.card-header -->
@@ -82,7 +82,7 @@ if(isset($current_status) && $current_status){
 
                     <th>Ticket ID</th>
                     <th>Title</th>
-                    <th>Description</th>
+                    <th>Description<br>Task</th>
                     <th>Handled by</th>
                     <th>Status</th>
                     <th>Date</th>
@@ -93,6 +93,7 @@ if(isset($current_status) && $current_status){
                 </thead>
                 <tbody>
                   <?php $n = 1 ?>
+                  
                   <?php foreach ($val as $value) { ?>
                     <tr>
                       <td><?= $n ?></td>
@@ -103,25 +104,77 @@ if(isset($current_status) && $current_status){
 
                       <td><?= $value['ticket_id'] ?></td>
                       <td><?= $value['title'] ?></td>
-                      <td><?= $value['description'] ?></td>
-                      <td>
+             <td>
+
+            <!-- DESCRIPTION -->
+            <b>Description:</b>
+
+            <ul style="margin-bottom:10px; padding-left:18px;">
+                <li>
+                    <?= !empty($value['description']) ? $value['description'] : 'No Description'; ?>
+                </li>
+            </ul>
+
+            <hr>
+
+            <!-- TASKS -->
+            <b>Tasks:</b>
+
+<?php if (!empty($value['tasks'])): ?>
+
+    <ul style="margin-bottom:0; padding-left:18px;">
+
+        <?php if (is_array($value['tasks'])): ?>
+
+            <?php foreach ($value['tasks'] as $task): ?>
+                <li>
+                    <?= is_array($task) ? $task['task_title'] : $task; ?>
+                </li>
+            <?php endforeach; ?>
+
+        <?php else: ?>
+
+            <?php 
+                $taskList = explode('||', $value['tasks']); 
+            ?>
+
+            <?php foreach ($taskList as $task): ?>
+                <?php if (trim($task) != ''): ?>
+                    <li><?= trim($task); ?></li>
+                <?php endif; ?>
+            <?php endforeach; ?>
+
+        <?php endif; ?>
+
+    </ul>
+
+<?php else: ?>
+
+    <ul style="margin-bottom:0; padding-left:18px;">
+        <li>No Tasks</li>
+    </ul>
+
+<?php endif; ?>
+
+        </td>             
+                                   <td>
                         <?= !empty($value['assigned_engineer_name'])
                           ? $value['assigned_engineer_name']
                           : 'Not Assigned' ?>
                       </td>
                       <td>
                        <?php if ($value['status_id'] == 1) { ?>
-  <span class="fas fa-circle text-success">Open</span>
+                        <span class="fas fa-circle text-success">Open</span>
 
-<?php } elseif ($value['status_id'] == 2) { ?>
-  <span class="fas fa-circle text-warning">In Process</span>
+                      <?php } elseif ($value['status_id'] == 2) { ?>
+                        <span class="fas fa-circle text-warning">In Process</span>
 
-<?php } elseif ($value['status_id'] == 3) { ?>
-  <span class="fas fa-circle text-info">Resolved</span>
+                      <?php } elseif ($value['status_id'] == 3) { ?>
+                        <span class="fas fa-circle text-info">Resolved</span>
 
-<?php } elseif ($value['status_id'] == 4) { ?>
-  <span class="fas fa-circle text-danger">Closed</span>
-<?php } ?>
+                      <?php } elseif ($value['status_id'] == 4) { ?>
+                        <span class="fas fa-circle text-danger">Closed</span>
+                      <?php } ?>
 
                       </td>
                       <td><?= $value['created_at'] ?></td>
@@ -255,13 +308,24 @@ if(isset($current_status) && $current_status){
                         <!-- ================= IT HEAD ================= -->
                         <?php if ($role_id == 3) { ?>
 
-                          <?php if ($value['status_id'] == 1) { ?>
+                        
+                        <?php if ($value['status_id'] == 1) { ?>
+                            <!-- Edit only if admin raised this ticket -->
+        <?php if ($value['user_id'] == $this->session->userdata('user_id')) { ?>
+            <a class="btn btn-sm btn-warning mb-1"
+               data-toggle="modal" data-target="#editModal"
+               onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
+        <?php } ?>
                             <a href="<?= base_url('TRS/accept_ticket/' . $value['ticket_id']) ?>"
                               class="btn btn-sm btn-success mb-1">Accept</a><br>
 
                             <a class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#assignModal"
                               onclick="assign(<?= $value['ticket_id'] ?>)">Assign</a><br>
-
+                            <a href="<?= base_url('TRS/delete/' . $value['ticket_id']) ?>"
+                              class="btn btn-sm btn-danger"
+                              onclick="return confirm('Delete ticket?');">
+                              Delete
+                            </a><br>
                             <a
                               class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
                               onclick="history(<?= $value['ticket_id'] ?>)">History</a><br>
@@ -271,7 +335,8 @@ if(isset($current_status) && $current_status){
                             <a class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#editModal"
                               onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
                               <?php if($value['assigned_engineer_id'] == $user_id){ ?>
-                            <a href="<?= base_url('TRS/leave_ticket/' . $value['ticket_id']) ?>"
+                            <a href="javascript:void(0);"  data-toggle="modal" data-target="#LeaveModal"
+                             onclick="openLeaveModal(<?= $value['ticket_id'] ?>)"
                               class="btn btn-sm btn-warning">Leave</a><br>
                               <?php } ?>
                                <?php if($value['assigned_engineer_id'] == $user_id){ ?>
@@ -326,7 +391,7 @@ if(isset($current_status) && $current_status){
 <form id="createForm">
   <div class="modal fade" id="createModal">
     <div class="modal-dialog">
-      <div class="modal-content bg-light">
+      <div class="modal-content bg-info">
         <div class="modal-header">
           <h4 class="modal-title">Add Ticket</h4>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -351,6 +416,23 @@ if(isset($current_status) && $current_status){
               <textarea name="description" class="form-control" placeholder="Enter Description" required></textarea>
             </div>
 
+             <!-- Tasks Section -->
+            <div class="form-group">
+                <label>Tasks</label>
+
+                <div id="taskWrapper">
+                    <div class="input-group mb-2">
+                        <input type="text" name="tasks[]" class="form-control" placeholder="Enter Task">
+                        <div class="input-group-append">
+                            <button type="button" class="btn btn-danger removeTask">X</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-sm btn-primary" id="addTaskFieldCreate">
+                    + Add More Task
+                </button>
+            </div>
 
 
             <!-- Terms -->
@@ -378,8 +460,6 @@ if(isset($current_status) && $current_status){
   </div>
   <!-- /.modal -->
 </form>
-
-
 
 
 
@@ -411,6 +491,25 @@ if(isset($current_status) && $current_status){
                 <label>Description</label>
                 <textarea name="description" id="edit_description" class="form-control"></textarea>
               </div>
+            
+
+             <!-- Tasks Section -->
+            <div class="form-group">
+                <label>Tasks</label>
+
+                <div id="editTaskWrapper">
+                    <div class="input-group mb-2">
+                        <input type="text" name="tasks[]" id="edit_tasks" class="form-control" placeholder="Enter Task">
+                          <div class="input-group-append">
+                            <button type="button" class="btn btn-danger removeTask">X</button>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" id="addTaskFieldEdit">
+                    + Add More Task
+                </button>
+                
+            </div>
             </div>
           <?php } ?>
 
@@ -426,6 +525,17 @@ if(isset($current_status) && $current_status){
                 <label>Description</label>
                 <textarea id="edit_description" class="form-control" readonly></textarea>
               </div>
+
+               <!-- Tasks Section -->
+            <div class="form-group">
+                <label>Tasks</label>
+
+                <div id="editTaskWrapper">
+                    <div class="input-group mb-2">
+                        <input type="text" name="tasks[]" id="edit_tasks" class="form-control" placeholder="Enter Task" readonly>
+                    </div>
+                </div>
+            </div>
 
               <div class="form-group">
                 <label>Status</label>
@@ -449,6 +559,17 @@ if(isset($current_status) && $current_status){
                 <label>Description</label>
                 <textarea id="edit_description" class="form-control" readonly></textarea>
               </div>
+
+               <!-- Tasks Section -->
+            <div class="form-group">
+                <label>Tasks</label>
+
+                <div id="editTaskWrapper">
+                    <div class="input-group mb-2">
+                        <input type="text" name="tasks[]" id="edit_tasks" class="form-control" placeholder="Enter Task" readonly>
+                    </div>
+                </div>
+            </div>
 
               <div class="form-group">
                 <label>Status</label>
@@ -525,6 +646,17 @@ if(isset($current_status) && $current_status){
             <textarea id="edit_description" class="form-control" readonly></textarea>
           </div>
 
+           <!-- Tasks Section -->
+          <div class="form-group">
+              <label>Tasks</label>
+
+              <div id="taskWrapper">
+                  <div class="input-group mb-2">
+                      <input type="text" name="tasks[]" class="form-control" placeholder="Enter Task" readonly>
+                  </div>
+              </div>
+          </div>
+
           <div class="form-group">
             <label>Assign To</label>
             <select name="assigned_engineer_id" id="edit_assigned" class="form-control">
@@ -573,6 +705,17 @@ if(isset($current_status) && $current_status){
             <textarea id="edit_description" class="form-control" readonly></textarea>
           </div>
 
+           <!-- Tasks Section -->
+          <div class="form-group">
+              <label>Tasks</label>
+
+              <div id="taskWrapper">
+                  <div class="input-group mb-2">
+                      <input type="text" name="tasks[]" class="form-control" placeholder="Enter Task" readonly>
+                  </div>
+              </div>
+          </div>
+          
           <div class="form-group">
             <label>Reassign To</label>
             <select name="assigned_engineer_id" id="edit_assigned" class="form-control">
@@ -623,6 +766,17 @@ if(isset($current_status) && $current_status){
             <label>Description</label>
             <textarea id="leave_description" class="form-control" readonly></textarea>
           </div>
+
+           <!-- Tasks Section -->
+   <div class="mb-3">
+    <label class="form-label fw-semibold">Tasks</label>
+
+    <div id="taskWrapper"
+         class="border rounded p-2 bg-light"
+         style="min-height:50px; max-height:150px; overflow-y:auto;">
+        <div class="text-muted small">Loading tasks...</div>
+    </div>
+</div>
 
           <div class="form-group">
             <label>Reason</label>

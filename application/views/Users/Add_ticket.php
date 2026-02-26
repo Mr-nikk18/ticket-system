@@ -39,7 +39,23 @@ $this->load->view('Layout/Header');
     <textarea name="description" class="form-control" placeholder="Enter Description" required></textarea>
   </div>
 
- 
+ <!-- Tasks Section -->
+<div class="form-group">
+    <label>Tasks</label>
+
+    <div id="taskWrapper">
+        <div class="input-group mb-2">
+            <input type="text" name="tasks[]" class="form-control" placeholder="Enter Task">
+            <div class="input-group-append">
+                <button type="button" class="btn btn-danger removeTask">X</button>
+            </div>
+        </div>
+    </div>
+
+    <button type="button" class="btn btn-sm btn-primary" id="addTaskField">
+        + Add More Task
+    </button>
+</div>
 
   <!-- Terms -->
   <div class="form-group">
@@ -63,8 +79,7 @@ $this->load->view('Layout/Header');
   </div>
   <!-- /.content-wrapper -->
 
-                
-              </form>
-         <?php 
+</form>
+<?php 
 $this->load->view('Layout/Footer');
 ?>

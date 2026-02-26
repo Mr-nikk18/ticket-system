@@ -14,11 +14,24 @@
   <link rel="stylesheet" href="<?php echo base_url() ?>assets/plugins/icheck-bootstrap/icheck-bootstrap.min.css">
   <!-- Theme style -->
   <link rel="stylesheet" href="<?php echo base_url() ?>assets/dist/css/adminlte.min.css">
+  <style>
+   /*
+   body{
+      background-image: url("https://wallpapercave.com/wp/wp8015615.jpg");
+       background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        height: 100vh;
+        margin: 0;
+    }
+        */
+  </style>
 </head>
 
 
 
   <body class="hold-transition login-page">
+    
 <?php if ($this->session->flashdata('failed')): ?>
     <div class="alert alert-danger alert-dismissible fade show text-center flash-msg" role="alert">
         <?= $this->session->flashdata('failed'); ?>

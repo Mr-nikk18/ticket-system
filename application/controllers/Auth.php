@@ -82,7 +82,7 @@ public function __construct()
             redirect('verify');
         }
 
-        $this->session->set_userdata([
+        $session=$this->session->set_userdata([
             'is_login'      => true,
             'user_id'       => $user->user_id,
             'username'      => $user->user_name,
@@ -91,7 +91,7 @@ public function __construct()
             'role_name'       => $user->role_name,
             'last_activity' => time()
         ]);
-
+     
         redirect('dashboard');
     }
 

@@ -60,4 +60,40 @@ $data['closed_count']     = $this->TRS_model->get_status_count($role_id,$user_id
     $this->load->view('Same_pages/Dashboard', $data);
 }
 
+public function add_task_comment()
+{
+    $data = [
+        'task_id'  => $this->input->post('task_id'),
+        'user_id'  => $this->session->userdata('user_id'),
+        'comment'  => $this->input->post('comment')
+    ];
+
+    $this->db->insert('task_comments', $data);
+}
+public function load_task_comments()
+{
+    $task_id = $this->input->post('task_id');
+
+    $comments = $this->db
+        ->select('task_comments.*, users.name as user_name')
+        ->from('task_comments')
+        ->join('users', 'users.user_id = task_comments.user_id')
+        ->where('task_comments.task_id', $task_id)   // 🔥 Only this filter
+        ->order_by('task_comments.comment_id', 'ASC')
+        ->get()
+        ->result();
+
+    foreach($comments as $c){
+
+        $side = ($c->user_id == $this->session->userdata('user_id'))
+                ? 'chat-right'
+                : 'chat-left';
+
+        echo '<div class="chat-message '.$side.'">
+                <strong>'.$c->user_name.':</strong>
+                '.$c->comment.'
+              </div>';
+    }
+}
+
 }

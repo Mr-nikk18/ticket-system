@@ -200,10 +200,9 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
 
 /* LOGO ANIMATION */
 .trs-logo {
-  mix-blend-mode: multiply;
-    height: 48px;
-    width: 48px;
-    border-radius: 50%;
+  border-radius: 40%;
+    height: 100px;
+    width: 111px;
     animation: logoPulse 3s ease-in-out infinite;
 }
 
@@ -314,7 +313,119 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
 .avatar-box input:checked {
 }
 
+.custom-fullscreen {
+    max-width: 95%;
+}
+.modal-backdrop.show {
+    opacity: 0.6;
+}
 
+
+.modal-body {
+    max-height: 80vh;
+    overflow-y: auto;
+    padding:25px;
+}
+
+.modal-lg {
+    max-width: 850px;
+}
+
+
+.info-box {
+    background: #f8f9fc;
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #e3e6f0;
+}
+
+.task-completed {
+    background: #e6f9ed;
+    text-decoration: line-through;
+}
+#ticketDetailContent {
+    padding: 20px;
+}
+
+.task-card {
+    background: #ffffff;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid #e3e6f0;
+    margin-bottom: 10px;
+    transition: 0.2s ease;
+}
+
+.task-card:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.task-card {
+    background: #ffffff;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #e3e6f0;
+    margin-bottom: 10px;
+    transition: 0.2s ease;
+}
+
+.task-card:hover {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+}
+
+.task-completed {
+    background: #e6f9ed;
+    text-decoration: line-through;
+}
+.modal-xl {
+    max-width: 1100px;
+}
+
+
+.task-container {
+    margin-top: 10px;
+}
+
+.task-card {
+    background: #ffffff;
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #e3e6f0;
+    margin-bottom: 12px;
+    transition: 0.2s ease;
+}
+
+.task-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+.task-completed {
+    background: #e6f9ed;
+    text-decoration: line-through;
+}
+
+.modal-dialog {
+    margin-top: 80px;
+}
+.ticket-hero {
+    padding: 18px 25px;
+    border-radius: 8px;
+}
+
+.modal-content {
+    border-radius: 10px;
+}
+
+.modal-header {
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
 
 .avatar-wrapper {
     text-align: center;
@@ -354,7 +465,34 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
 .avatar-nav {
     margin-top: 15px;
 }
+.task-card {
+    cursor: grab;
+    transition: 0.2s ease;
+}
 
+.task-card:active {
+    cursor: grabbing;
+}
+
+.task-card:hover {
+    background: #f8f9fa;
+}
+
+.task-placeholder {
+    height: 60px;
+    border-radius: 12px;
+    border: 2px dashed #007bff;
+    background: rgba(0,123,255,0.05);
+    margin-bottom: 10px;
+}
+
+.ui-sortable-helper {
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+.ui-sortable-helper {
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
 .avatar-nav button {
     border: none;
     background: #007bff;
@@ -409,8 +547,15 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
     margin-bottom: 10px;
 }
 
-</style>
-<style>
+.edit-task {
+    border: 1px solid #dee2e6;
+    padding: 2px 8px;
+}
+
+.edit-task:hover {
+    background-color: #f8f9fa;
+}
+
 .main-header {
     position: relative;
 }
@@ -428,14 +573,39 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
     border-radius: 13px;   /* pill shape */
     z-index: 9999;
 }
+.chat-box {
+    max-height: 200px;
+    overflow-y: auto;
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+}
 
+.chat-message {
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border-radius: 15px;
+    max-width: 70%;
+    font-size: 13px;
+}
+
+.chat-left {
+    background: #e9ecef;
+    text-align: left;
+}
+
+.chat-right {
+    background: #0d6efd;
+    color: white;
+    margin-left: auto;
+    text-align: right;
+}
 
 .flot-x-axis div {
     transform: rotate(-30deg);
     transform-origin: top right;
 }
-</style>
-<style>
+
 .main-sidebar {
     background-color: <?= $sidebar_color ?> !important;
 }
@@ -452,7 +622,6 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
     background-color: <?= $card_color ?> !important;
 }
 </style>
-
 </head>
 
 <body class="hold-transition sidebar-mini layout-fixed <?= ($dark_mode ? 'dark-mode' : '') ?>">
@@ -465,7 +634,7 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
 
   <!-- Preloader -->
   <div class="preloader flex-column justify-content-center align-items-center">
-    <img class="animation__shake" src="<?= base_url() ?>assets/dist/img/TRS.png" alt="TRS" height="60" width="60">
+    <img class="animation__shake" src="<?= base_url() ?>assets/dist/img/TRS.png" alt="TRS" height="200" width="200">
   </div>
 
   <!-- Navbar -->
@@ -476,7 +645,7 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
         <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
       </li>
       <li class="nav-item d-none d-sm-inline-block">
-        <a href="<?= base_url('TRS/Dashboard') ?>" class="nav-link">Home</a>
+        <a href="<?= base_url('Dashboard') ?>" class="nav-link">Home</a>
       </li>
       
     </ul>
@@ -576,33 +745,38 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
           <a href="#" class="dropdown-item dropdown-footer">See All Messages</a>
         </div>
       </li>
-      <!-- Notifications Dropdown Menu -->
-      <li class="nav-item dropdown">
-        <a class="nav-link" data-toggle="dropdown" href="#">
-          <i class="far fa-bell"></i>
-          <span class="badge badge-warning navbar-badge">15</span>
-        </a>
-        <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-          <span class="dropdown-item dropdown-header">15 Notifications</span>
-          <div class="dropdown-divider"></div>
-          <a href="#" class="dropdown-item">
-            <i class="fas fa-envelope mr-2"></i> 4 new messages
-            <span class="float-right text-muted text-sm">3 mins</span>
-          </a>
-          <div class="dropdown-divider"></div>
-          <a href="#" class="dropdown-item">
-            <i class="fas fa-users mr-2"></i> 8 friend requests
-            <span class="float-right text-muted text-sm">12 hours</span>
-          </a>
-          <div class="dropdown-divider"></div>
-          <a href="#" class="dropdown-item">
-            <i class="fas fa-file mr-2"></i> 3 new reports
-            <span class="float-right text-muted text-sm">2 days</span>
-          </a>
-          <div class="dropdown-divider"></div>
-          <a href="#" class="dropdown-item dropdown-footer">See All Notifications</a>
-        </div>
-      </li>
+  
+<!-- Notifications Dropdown Menu -->
+<li class="nav-item dropdown">
+  <a class="nav-link" data-toggle="dropdown" href="#">
+    <i class="far fa-bell"></i>
+    <span id="notificationBadge"
+          class="badge badge-warning navbar-badge"
+          style="display:none;">
+    </span>
+  </a>
+
+  <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+    <span class="dropdown-item dropdown-header"
+          id="notificationHeader">
+        0 Notifications
+    </span>
+
+    <div class="dropdown-divider"></div>
+
+    <div id="notificationList">
+        <span class="dropdown-item text-muted text-center">
+            No new notifications
+        </span>
+    </div>
+
+    <div class="dropdown-divider"></div>
+    <a href="<?= base_url('TRS/all_notifications') ?>"
+       class="dropdown-item dropdown-footer">
+       See All Notifications
+    </a>
+  </div>
+</li>
       <li class="nav-item">
         <a class="nav-link" data-widget="fullscreen" href="#" role="button">
           <i class="fas fa-expand-arrows-alt"></i>

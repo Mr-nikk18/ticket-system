@@ -124,7 +124,8 @@ class Developer extends MY_Controller
           <?= $latest['now_handled_by'] ?: 'Not Assigned' ?>
 
           <?php
-          $status = strtolower($latest['status_slug']);
+          
+          $status = strtolower($latest['recent_status']);
 
           switch ($status) {
             case 'open':
@@ -146,7 +147,7 @@ class Developer extends MY_Controller
           ?>
 
           <span class="badge <?= $badge ?> ml-2">
-            <?= ucfirst(str_replace('_',' ',$latest['status_slug'])) ?>
+            <?= ucfirst(str_replace('_',' ',$latest['recent_status'])) ?>
 
           </span>
         </h6>
@@ -249,7 +250,7 @@ class Developer extends MY_Controller
             <td><?= $latest['now_handled_by'] ?: 'Not Assigned' ?></td>
             <td>
               <span class="badge <?= $badge ?>">
-                <?= ucfirst($latest['status_slug']) ?>
+                <?= ucfirst($latest['recent_status']) ?>
               </span>
             </td>
           </tr>
@@ -322,7 +323,7 @@ class Developer extends MY_Controller
               <tr>
                 <td>{$i}</td>
                 <td>{$t['title']}</td>
-<td>" . ucfirst(str_replace('_',' ', $t['status_slug'])) . "</td>
+<td>" . ucfirst(str_replace('_',' ', $t['recent_status'])) . "</td>
                 <td>{$t['created_at']}</td>
               </tr>
             ";

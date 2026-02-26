@@ -17,7 +17,8 @@ $route['reset-password/(:any)'] = 'Auth/form/$1';
 $route['Modify']='Auth/Modify_pass';
 /* DASHBOARD */
 //$route['dashboard'] = 'TRS/dashboard';
-$route['Dashboard'] = 'Dashboard';
+$route['Dashboard'] = 'Dashboard/index';
+$route['dashboard'] = 'Dashboard/index';
 
 
 

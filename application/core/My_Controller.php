@@ -17,7 +17,7 @@ class MY_Controller extends CI_Controller {
         }
 
         // ⏳ Session timeout (30 min)
-        $timeout = 1800;
+        $timeout = 300;
         $last = $this->session->userdata('last_activity');
 
         if ($last && time() - $last > $timeout) {
