@@ -1,6 +1,109 @@
 <?php
 class TRS_model extends CI_Model
 {
+        private function get_ticket_rule_scope()
+        {
+            return ((int) $this->session->userdata('department_id') === 2) ? 1 : 0;
+        }
+
+        public function get_it_team_users()
+        {
+            return $this->db
+                ->select('user_id, name, email, role_id')
+                ->from('users')
+                ->where('department_id', 2)
+                ->where('status', 'Active')
+                ->order_by('role_id', 'DESC')
+                ->order_by('name', 'ASC')
+                ->get()
+                ->result();
+        }
+
+        public function get_ticket_owner($ticket_id)
+        {
+            return $this->db
+                ->select('tickets.ticket_id, tickets.title, tickets.created_at, tickets.assignment_due_at, tickets.assigned_engineer_id, owner.user_id as owner_user_id, owner.name as owner_name, owner.email as owner_email')
+                ->from('tickets')
+                ->join('users as owner', 'owner.user_id = tickets.user_id', 'left')
+                ->where('tickets.ticket_id', (int) $ticket_id)
+                ->get()
+                ->row();
+        }
+
+        public function get_engineer_user($user_id)
+        {
+            return $this->db
+                ->select('user_id, name, email')
+                ->from('users')
+                ->where('user_id', (int) $user_id)
+                ->get()
+                ->row();
+        }
+
+        public function get_unassigned_open_tickets_for_assignment($now)
+        {
+            return $this->db
+                ->select('tickets.*, owner.name as owner_name, owner.email as owner_email')
+                ->from('tickets')
+                ->join('users as owner', 'owner.user_id = tickets.user_id', 'left')
+                ->where('tickets.status_id', 1)
+                ->where('tickets.assigned_engineer_id IS NULL', null, false)
+                ->where('tickets.deleted_at IS NULL', null, false)
+                ->where('tickets.assignment_due_at <=', $now)
+                ->get()
+                ->result();
+        }
+
+        public function get_assignment_reminder_candidates($now)
+        {
+            return $this->db
+                ->select('tickets.*, owner.name as owner_name, owner.email as owner_email')
+                ->from('tickets')
+                ->join('users as owner', 'owner.user_id = tickets.user_id', 'left')
+                ->where('tickets.status_id', 1)
+                ->where('tickets.assigned_engineer_id IS NULL', null, false)
+                ->where('tickets.deleted_at IS NULL', null, false)
+                ->where('tickets.assignment_reminder_sent_at IS NULL', null, false)
+                ->group_start()
+                    ->where("TIME(" . $this->db->escape($now) . ") >= '16:00:00'", null, false)
+                    ->where("DATE(tickets.created_at) = DATE(" . $this->db->escape($now) . ")", null, false)
+                    ->or_where('tickets.assignment_due_at <=', date('Y-m-d H:i:s', strtotime($now . ' +8 hours')))
+                ->group_end()
+                ->where('tickets.assignment_due_at >', $now)
+                ->get()
+                ->result();
+        }
+
+        public function mark_assignment_reminder_sent($ticket_id)
+        {
+            return $this->db
+                ->where('ticket_id', (int) $ticket_id)
+                ->update('tickets', ['assignment_reminder_sent_at' => date('Y-m-d H:i:s')]);
+        }
+
+        public function get_auto_assign_candidate()
+        {
+            return $this->db->query("
+                SELECT u.user_id, u.name, u.email, COUNT(t.ticket_id) AS active_ticket_count
+                FROM users u
+                LEFT JOIN tickets t
+                    ON t.assigned_engineer_id = u.user_id
+                   AND t.deleted_at IS NULL
+                   AND t.status_id IN (1,2,3)
+                WHERE u.department_id = 2
+                  AND u.role_id = 1
+                  AND u.status = 'Active'
+                GROUP BY u.user_id, u.name, u.email
+                ORDER BY active_ticket_count ASC, u.name ASC
+                LIMIT 1
+            ")->row();
+        }
+
+        public function create_notification(array $data)
+        {
+            return $this->db->insert('task_messages', $data);
+        }
+
         public function get_status_id($status_name)
         {
             $status = $this->db
@@ -135,89 +238,112 @@ public function get_tasks_by_ticket($ticket_id)
 
 
     /* -------- USER TICKETS -------- */
-    public function get_user_tickets($user_id, $status = null)
+public function get_user_tickets($user_id, $status = null)
 {
     $this->db
-        ->select('tickets.*, d.name AS assigned_engineer_name,GROUP_CONCAT(tt.task_title SEPARATOR "||") AS tasks')
-        ->from('tickets')
-        ->join('users d', 'd.user_id = tickets.assigned_engineer_id', 'left')
-        ->join('ticket_tasks tt', 'tt.ticket_id = tickets.ticket_id', 'left')
-        ->where('tickets.user_id', $user_id)
-        ->where('tickets.deleted_at IS NULL')    ->group_by('tickets.ticket_id');
+        ->select('
+            t.*,
+            owner.name AS user_full_name,
+            engineer.name AS assigned_engineer_name,
+            dept.department_name,
+            GROUP_CONCAT(tt.task_title SEPARATOR "||") AS tasks
+        ')
+        ->from('tickets t')
 
-    if ($status) {
-        $this->db->where('tickets.status_id', $status);
+        ->join('users owner', 'owner.user_id = t.user_id', 'left')
+        ->join('users engineer', 'engineer.user_id = t.assigned_engineer_id', 'left')
+        ->join('departments dept', 'dept.department_id = owner.department_id', 'left')
+        ->join('ticket_tasks tt', 'tt.ticket_id = t.ticket_id', 'left')
+
+        ->where('t.user_id', $user_id)
+        ->where('t.deleted_at IS NULL')
+        ->group_by('t.ticket_id');
+
+    if ($status != null) {
+        $this->db->where('t.status_id', $status);
     }
 
-    // 🔥 Status priority for USER
-    $this->db->order_by("
-        
-            CASE
-    WHEN tickets.status_id = 2 THEN 1
-    WHEN tickets.status_id = 3 THEN 2
-    WHEN tickets.status_id = 1 THEN 3
-    WHEN tickets.status_id = 4 THEN 4
-    ELSE 5
-    END
-
-
-            
-    ", '', false);
-
-    $this->db->order_by('tickets.ticket_id', 'DESC');
-
-    return $this->db->get()->result_array();
+    return $this->db
+        ->order_by('t.ticket_id', 'DESC')
+        ->get()
+        ->result_array();
 }
 
 
     /* -------- ALL TICKETS -------- */
-   public function get_all_tickets($status = null)
+public function get_all_tickets($status = null)
 {
-    $user_id = $this->session->userdata('user_id');
-
-    $this->db 
+    $this->db
         ->select('
-            tickets.*,
-            u.name AS user_full_name,
-            dept.department_name AS department_name,
-            d.name AS assigned_engineer_name,
- GROUP_CONCAT(tt.task_title SEPARATOR "||") AS tasks        ')
-        ->from('tickets')
-        ->join('users u', 'u.user_id = tickets.user_id', 'left')
-                ->join('departments dept', 'dept.department_id = u.department_id', 'left')
-        ->join('users d', 'd.user_id = tickets.assigned_engineer_id', 'left')
-        ->join('ticket_tasks tt', 'tt.ticket_id = tickets.ticket_id', 'left')
-        ->where('tickets.deleted_at IS NULL')
-         ->group_by('tickets.ticket_id');
+            t.*,
+            owner.name AS user_full_name,
+            engineer.name AS assigned_engineer_name,
+            dept.department_name
+        ')
+        ->from('tickets t')
 
-    if ($status) {
-        $this->db->where('tickets.status_id', $status);
+        // Ticket owner
+        ->join('users owner', 'owner.user_id = t.user_id', 'left')
+
+        // Assigned engineer
+        ->join('users engineer', 'engineer.user_id = t.assigned_engineer_id', 'left')
+
+        // Department (FROM OWNER TABLE)
+        ->join('departments dept', 'dept.department_id = owner.department_id', 'left')
+
+        ->where('t.deleted_at IS NULL');
+
+    if ($status != null) {
+        $this->db->where('t.status_id', $status);
     }
 
-    $this->db->order_by("
-        CASE
-            WHEN tickets.assigned_engineer_id = {$user_id} THEN 1
-            ELSE 2
-        END
-    ", '', false);
-
-    $this->db->order_by("
-        
-         
-       CASE
-    WHEN tickets.status_id = 2 THEN 1
-    WHEN tickets.status_id = 3 THEN 2
-    WHEN tickets.status_id = 1 THEN 3
-    WHEN tickets.status_id = 4 THEN 4
-    ELSE 5
- END
-
-    ", '', false);
-
-    $this->db->order_by('tickets.ticket_id', 'DESC');
-
-    return $this->db->get()->result_array();
+    return $this->db
+        ->order_by('t.ticket_id', 'DESC')
+        ->get()
+        ->result_array();
 }
+
+public function get_visible_tickets_for_list($role_id, $department_id, $user_id, $status = null)
+{
+    if ((int) $role_id === 2 && (int) $department_id === 2) {
+        return $this->get_all_tickets($status);
+    }
+
+    if ((int) $department_id === 2) {
+        $this->db
+            ->select('
+                t.*,
+                owner.name AS user_full_name,
+                engineer.name AS assigned_engineer_name,
+                dept.department_name
+            ')
+            ->from('tickets t')
+            ->join('users owner', 'owner.user_id = t.user_id', 'left')
+            ->join('users engineer', 'engineer.user_id = t.assigned_engineer_id', 'left')
+            ->join('departments dept', 'dept.department_id = owner.department_id', 'left')
+            ->where('t.deleted_at IS NULL')
+            ->group_start()
+                ->where('t.assigned_engineer_id', (int) $user_id)
+                ->or_group_start()
+                    ->where('t.status_id', 1)
+                    ->where('t.assigned_engineer_id IS NULL', null, false)
+                ->group_end()
+            ->group_end();
+
+        if ($status != null) {
+            $this->db->where('t.status_id', $status);
+        }
+
+        return $this->db
+            ->order_by('t.ticket_id', 'DESC')
+            ->get()
+            ->result_array();
+    }
+
+    return $this->get_user_tickets($user_id, $status);
+}
+
+
 
 
     /* -------- RECENT -------- */
@@ -230,6 +356,7 @@ public function get_all_recent_tickets($limit)
         ->from('tickets t')
         ->join('users u', 'u.user_id = t.assigned_engineer_id', 'left')
         ->where('t.deleted_at IS NULL')
+        ->where('t.status_id', 1)
         ->order_by("
             CASE 
                 WHEN t.assigned_engineer_id = {$developer_id} 
@@ -246,19 +373,21 @@ public function get_all_recent_tickets($limit)
 
 
 // MODEL (TRS_model.php)
-public function get_user_recent_tickets($user_id, $limit = 5)
-{
-    return $this->db
-        ->select('t.*, u.name AS assigned_engineer_name')
-        ->from('tickets t')
-        ->join('users u', 'u.user_id = t.assigned_engineer_id', 'left')
-        ->where('t.user_id', $user_id)              // ticket owner
-        ->where('t.deleted_at IS NULL')
-        ->order_by('t.ticket_id', 'DESC')           // latest first
-        ->limit($limit)
-        ->get()
-        ->result_array();
-}
+    public function get_user_recent_tickets($user_id, $limit = 5)
+    {
+        
+
+        return $this->db
+            ->select('t.*, u.name AS assigned_engineer_name')
+            ->from('tickets t')
+            ->join('users u', 'u.user_id = t.assigned_engineer_id', 'left')
+            ->where('t.user_id', $user_id)              // ticket owner
+            ->where('t.deleted_at IS NULL')
+            ->order_by('t.ticket_id', 'DESC')           // latest first
+            ->limit($limit)
+            ->get()
+            ->result_array();
+    }
 
 
     /* -------- DEV ACCEPTED -------- */
@@ -300,7 +429,7 @@ public function get_my_accepted_tickets($developer_id)
     public function get_all_developers()
     {
         return $this->db
-            ->where('role_id', 2)
+            ->where('department_id', 2)
             ->where('status', 'Active')
             ->get('users')
             ->result_array();
@@ -315,6 +444,7 @@ public function get_status_count($role_id,$user_id,$status)
       JOIN role_ticket_rules r
         ON r.role_id = ?
        AND r.status = ?
+       AND r.is_it_only = ?
       WHERE t.deleted_at IS NULL
         AND t.status_id = ?
         AND (
@@ -327,6 +457,7 @@ public function get_status_count($role_id,$user_id,$status)
     return $this->db->query($sql,[
         $role_id,
         $status,
+        $this->get_ticket_rule_scope(),
         $status,
         $user_id,
         $user_id
@@ -341,39 +472,40 @@ public function get_role_view_type($role_id)
         ->select('view_type')
         ->from('role_ticket_rules')
         ->where('role_id',$role_id)
+        ->where('is_it_only', $this->get_ticket_rule_scope())
         ->get()
         ->row()
         ->view_type;
 }
 
 
-
-
-
-public function get_recent_tickets($role_id,$user_id)
+public function get_recent_tickets($role_id,$user_id,$status_id)
 {
     return $this->db->query("
         SELECT DISTINCT 
             t.*,
-            u.user_name AS assigned_engineer_name,
+            u.name AS assigned_engineer_name,
 
-            /* Decide from DB if user can accept */
             CASE
                 WHEN r.view_type IN ('ASSIGNED','ALL')
                      AND t.assigned_engineer_id IS NULL
                      AND t.status_id = 1
-                     
                 THEN 1
                 ELSE 0
             END AS can_accept
 
         FROM tickets t
+
         LEFT JOIN users u 
             ON u.user_id = t.assigned_engineer_id
+            
         JOIN role_ticket_rules r
             ON r.role_id = ?
+            AND r.status = t.status_id
+            AND r.is_it_only = ?
 
         WHERE t.deleted_at IS NULL
+          AND t.status_id = ?   -- 🔥 IMPORTANT
           AND (
                 r.view_type = 'ALL'
                 OR (r.view_type = 'OWN' AND t.user_id = ?)
@@ -382,16 +514,22 @@ public function get_recent_tickets($role_id,$user_id)
 
         ORDER BY t.ticket_id DESC
         LIMIT 5
-    ", [$role_id,$user_id,$user_id])->result_array();
+    ", [$role_id,$this->get_ticket_rule_scope(),$status_id,$user_id,$user_id])->result_array();
 }
-
 public function check_status_permission($role_id, $from_status, $to_status)
 {
+    $department_id = (int) $this->session->userdata('department_id');
+
     return $this->db
                 ->where('role_id', $role_id)
                 ->where('from_status', $from_status)
                 ->where('to_status', $to_status)
                 ->where('allowed', 1)
+                ->group_start()
+                    ->where('department_id', $department_id)
+                    ->or_where('department_id IS NULL', null, false)
+                ->group_end()
+                ->order_by('department_id IS NULL', 'ASC', false)
                 ->get('status_permissions')
                 ->row();
 }
@@ -399,17 +537,18 @@ public function get_tickets_by_status($status_id)
 {
     $role_id = $this->session->userdata('role_id');
     $user_id = $this->session->userdata('user_id');
+    $department_id=$this->session->userdata('department_id');
 
     $this->db->from('tickets');
     $this->db->where('status_id', $status_id);
 
     // 👤 USER
-    if($role_id == 1){
-        $this->db->where('created_by', $user_id);
+    if($role_id == 1 && $department_id != 2){ 
+        $this->db->where('user_id', $user_id);
     }
 
     // 👨‍💻 DEVELOPER
-    elseif($role_id == 2){
+    elseif($department_id  == 2){
 
         if($status_id != 1){
             $this->db->where('assigned_engineer_id', $user_id);
@@ -425,10 +564,15 @@ public function get_unread_notifications($user_id)
     return $this->db
         ->select('task_messages.id,
                   task_messages.ticket_id,
+                  task_messages.schedule_task_id,
+                  task_messages.task_id,
+                  task_messages.notification_type,
                   task_messages.message,
                   task_messages.created_at,
-                  tickets.title')
-        ->join('tickets', 'tickets.ticket_id = task_messages.ticket_id')
+                  tickets.title,
+                  schedule_tasks.schedule_name')
+        ->join('tickets', 'tickets.ticket_id = task_messages.ticket_id', 'left')
+        ->join('schedule_tasks', 'schedule_tasks.id = task_messages.schedule_task_id', 'left')
         ->where('receiver_id', $user_id)
         ->where('is_read', 0)
         ->order_by('task_messages.created_at', 'DESC')

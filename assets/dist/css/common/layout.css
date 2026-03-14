@@ -1,0 +1,253 @@
+.role-section {
+  display: none;
+}
+
+.timeline {
+  list-style: none;
+  padding-left: 0;
+}
+
+.timeline-item {
+  position: relative;
+  padding: 15px 20px;
+  margin-bottom: 20px;
+  border-left: 3px solid #007bff;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.timeline-item::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background: #007bff;
+  border-radius: 50%;
+  position: absolute;
+  left: -7px;
+  top: 20px;
+}
+
+.timeline-date {
+  font-size: 12px;
+  color: #6c757d;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.timeline-content h5 {
+  font-weight: 600;
+}
+
+.border-left-primary {
+  border-left: 4px solid #007bff !important;
+}
+
+.approval-history {
+  width: 100%;
+}
+
+.approval-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.approval-date {
+  background: #59e83c;
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 3px;
+  min-width: 155px;
+  text-align: center;
+  margin-right: 12px;
+  line-height: 1.3;
+}
+
+.approval-box {
+  background: #f7f7f7;
+  border: 1px solid #dcdcdc;
+  border-radius: 4px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.approval-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.approval-user {
+  font-weight: 600;
+  color: #007bff;
+  font-size: 14px;
+}
+
+.approval-status {
+  background: #28a745;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: capitalize;
+}
+
+.approval-text {
+  font-size: 14px;
+  color: #333;
+}
+
+.approval-remarks {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #555;
+}
+
+.with-line {
+  position: relative;
+}
+
+.with-line::before {
+  content: "";
+  position: absolute;
+  left: 78px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #dee2e6;
+}
+
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trs-logo {
+  border-radius: 40%;
+  height: 100px;
+  width: 111px;
+  animation: logoPulse 3s ease-in-out infinite;
+}
+
+.trs-text {
+  font-weight: 700;
+  font-size: 18px;
+  background: linear-gradient(45deg, #0d6efd, #20c997);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: textPulse 3s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+  0% { filter: drop-shadow(0 0 3px rgba(243, 242, 240, 1)); }
+  50% { filter: drop-shadow(0 0 15px rgba(15, 15, 14, 0.9)); }
+  100% { filter: drop-shadow(0 0 3px rgba(245, 221, 6, 0.8)); }
+}
+
+@keyframes textPulse {
+  0% {
+    text-shadow: 0 0 3px rgba(13, 110, 253, 0.3);
+    opacity: 0.8;
+  }
+  50% {
+    text-shadow: 0 0 15px rgba(13, 110, 253, 0.9);
+    opacity: 1;
+  }
+  100% {
+    text-shadow: 0 0 3px rgba(78, 248, 87, 0.97);
+    opacity: 0.8;
+  }
+}
+
+.user-panel img:hover {
+  transform: scale(1.05);
+  transition: 0.3s ease;
+}
+
+.user-panel {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.avatar-nav button {
+  border: none;
+  background: #007bff;
+  color: white;
+  padding: 6px 12px;
+  margin: 0 5px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.kanban-column {
+  min-height: 500px;
+  background: #f4f5f7;
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.kanban-header {
+  background: linear-gradient(135deg, #343a40, #495057);
+  color: white;
+  padding: 10px;
+  border-radius: 10px 10px 0 0;
+  font-weight: 600;
+}
+
+.priority-strip {
+  height: 4px;
+  border-radius: 5px 5px 0 0;
+}
+
+.high { background: #dc3545; }
+.medium { background: #ffc107; }
+.low { background: #28a745; }
+
+.ticket-card {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: grab;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.ticket-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.dragging {
+  transform: rotate(2deg);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.3);
+  background: #ffffff;
+}
+
+.kanban-placeholder,
+.ui-state-highlight {
+  height: 70px;
+  background: #dfe3e8;
+  border: 2px dashed #6c757d;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.edit-task {
+  border: 1px solid #dee2e6;
+  padding: 2px 8px;
+}
+
+.edit-task:hover {
+  background-color: #f8f9fa;
+}
+
+.main-header {
+  position: relative;
+}
+
+.flash-msg {
+  position: absolute;
+  top: 1px;
+}

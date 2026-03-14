@@ -38,8 +38,12 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
   <link rel="stylesheet" href="<?= base_url() ?>assets/plugins/daterangepicker/daterangepicker.css">
   <!-- summernote -->
   <link rel="stylesheet" href="<?= base_url() ?>assets/plugins/summernote/summernote-bs4.min.css">
-  <script src="<?= base_url() ?>assets/plugins/jquery/jquery.min.js"></script>
-<script src="<?= base_url() ?>assets/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <link rel="stylesheet" href="<?= base_url() ?>assets/dist/css/common/layout.css">
+  <?php if (!empty($page_css) && is_array($page_css)) { ?>
+    <?php foreach ($page_css as $css_file) { ?>
+      <link rel="stylesheet" href="<?= base_url($css_file) ?>">
+    <?php } ?>
+  <?php } ?>
 <style>
   .role-section {
   display: none;
@@ -466,11 +470,15 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
     margin-top: 15px;
 }
 .task-card {
-    cursor: grab;
+    cursor: default;
     transition: 0.2s ease;
 }
 
-.task-card:active {
+.task-sort-enabled .task-card {
+    cursor: grab;
+}
+
+.task-sort-enabled .task-card:active {
     cursor: grabbing;
 }
 
@@ -478,12 +486,20 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
     background: #f8f9fa;
 }
 
-.task-placeholder {
+.task-sort-enabled .task-placeholder {
     height: 60px;
     border-radius: 12px;
     border: 2px dashed #007bff;
-    background: rgba(0,123,255,0.05);
+    background: rgba(0,123,255,0.06);
+    box-shadow: inset 0 0 0 1px rgba(0,123,255,0.08);
     margin-bottom: 10px;
+}
+
+.task-placeholder {
+    height: 0;
+    border: 0;
+    background: transparent;
+    margin: 0;
 }
 
 .ui-sortable-helper {
@@ -529,7 +545,7 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
     background: #ffffff;
     border-radius: 8px;
     padding: 12px;
-    cursor: grab;
+    cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
@@ -540,16 +556,26 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
 }
 
 .ui-state-highlight {
+    height: 0;
+    background: transparent;
+    border: 0;
+    margin: 0;
+}
+
+.kanban-column .ui-state-highlight,
+.kanban-team-column .ui-state-highlight {
     height: 70px;
-    background: #dfe3e8;
-    border: 2px dashed #6c757d;
-    border-radius: 8px;
+    background: rgba(13, 110, 253, 0.08);
+    border: 2px dashed rgba(13, 110, 253, 0.55);
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.08);
     margin-bottom: 10px;
 }
 
 .edit-task {
     border: 1px solid #dee2e6;
     padding: 2px 8px;
+    min-width: 34px;
 }
 
 .edit-task:hover {
@@ -607,11 +633,30 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
 }
 
 .main-sidebar {
-    background-color: <?= $sidebar_color ?> !important;
+    background:
+        linear-gradient(180deg, rgba(10, 12, 16, 0.88), rgba(37, 23, 10, 0.93)),
+        url('<?= base_url('assets/dist/img/IMG_4104.JPG.jpeg') ?>') center center/100% 100% no-repeat !important;
+    color: #f6ead7 !important;
+    box-shadow: 18px 0 45px rgba(14, 12, 10, 0.24);
+    position: relative;
+}
+
+.main-sidebar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.36)),
+      linear-gradient(90deg, rgba(217, 164, 65, 0.06), transparent 28%);
+    pointer-events: none;
 }
 
 .navbar {
-    background-color: <?= $navbar_color ?> !important;
+    background:
+      linear-gradient(90deg, rgba(247, 238, 223, 0.94), rgba(230, 181, 82, 0.18), rgba(255, 249, 240, 0.88)) !important;
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(165, 115, 44, 0.18);
+    box-shadow: 0 10px 30px rgba(33, 25, 16, 0.1);
 }
 
 .card-primary {
@@ -620,6 +665,169 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
 
 .nav-sidebar .nav-link.active {
     background-color: <?= $card_color ?> !important;
+}
+
+.main-footer {
+    background:
+      linear-gradient(90deg, rgba(18, 20, 24, 0.98), rgba(69, 46, 16, 0.98), rgba(18, 20, 24, 0.96)) !important;
+    color: #f5e8d4 !important;
+    border-top: 1px solid rgba(217, 164, 65, 0.16);
+}
+
+.main-footer a,
+.navbar-light .navbar-nav .nav-link,
+.navbar-light .navbar-nav .nav-link i {
+    color: #2c2b29 !important;
+}
+
+.main-sidebar .brand-link {
+    background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(4px);
+}
+
+.main-sidebar .brand-link,
+.main-sidebar .brand-link .trs-text,
+.main-sidebar .nav-sidebar .nav-link,
+.main-sidebar .user-panel,
+.main-sidebar .user-panel .info,
+.main-sidebar .user-panel div,
+.main-sidebar .form-control-sidebar,
+.main-sidebar .btn-sidebar {
+    color: #f6ead7 !important;
+}
+
+.main-sidebar .nav-sidebar .nav-link {
+    border-radius: 14px;
+    margin: 2px 10px;
+    transition: background-color 0.18s ease, transform 0.18s ease, color 0.18s ease;
+}
+
+.main-sidebar .nav-sidebar .nav-link:hover {
+    background: rgba(255,255,255,0.08);
+    transform: translateX(3px);
+}
+
+.main-sidebar .nav-sidebar .nav-link.active {
+    background: linear-gradient(90deg, <?= $card_color ?>, rgba(217, 164, 65, 0.92)) !important;
+    color: #fffdf8 !important;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+.content-wrapper,
+.content-wrapper[class*="bg-"] {
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(248, 239, 226, 0.6), rgba(241, 228, 209, 0.72)),
+      url('<?= base_url('assets/dist/img/IMG_4104.JPG.jpeg') ?>') center center/100% 100% no-repeat !important;
+}
+
+.content-wrapper::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 0 250px;
+    background:
+      linear-gradient(135deg, rgba(22, 20, 18, 0.2), rgba(173, 117, 41, 0.08)),
+      linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+    pointer-events: none;
+    z-index: 0;
+}
+
+.content-wrapper > * {
+    position: relative;
+    z-index: 1;
+}
+
+.card,
+.modal-content,
+.small-box,
+.info-box {
+    background: linear-gradient(180deg, rgba(255, 249, 240, 0.92), rgba(248, 238, 223, 0.88));
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(130, 92, 34, 0.14);
+    box-shadow: 0 18px 42px rgba(31, 22, 13, 0.12);
+}
+
+.modal-backdrop.show {
+    opacity: 1 !important;
+    background:
+      linear-gradient(135deg, rgba(10, 10, 12, 0.78), rgba(39, 24, 10, 0.7)),
+      url('<?= base_url('assets/dist/img/IMG_4104.JPG.jpeg') ?>') center/cover no-repeat !important;
+    backdrop-filter: none;
+}
+
+.modal-content {
+    position: relative;
+    overflow: hidden;
+}
+
+.modal-content::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(135deg, rgba(20, 17, 14, 0.5), rgba(166, 110, 26, 0.18)),
+      url('<?= base_url('assets/dist/img/IMG_4104.JPG.jpeg') ?>') center/cover no-repeat;
+    filter: none;
+    transform: scale(1);
+    opacity: 0.1;
+    pointer-events: none;
+}
+
+.modal-header,
+.modal-body,
+.modal-footer {
+    position: relative;
+    z-index: 1;
+    background: rgba(253, 247, 238, 0.86);
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(130, 92, 34, 0.16);
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(130, 92, 34, 0.16);
+}
+
+.trs-logo,
+.trs-text,
+.preloader .animation__shake {
+    animation: none !important;
+}
+
+.trs-logo {
+    filter: drop-shadow(0 10px 22px rgba(0,0,0,0.18));
+}
+
+.trs-text {
+    background: linear-gradient(45deg, #f0c765, #fff7e4, #cd8a16) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    text-shadow: none !important;
+}
+
+.preloader {
+    background:
+      radial-gradient(circle at center, rgba(255,255,255,0.98), rgba(244, 232, 212, 0.92)) !important;
+}
+
+.main-sidebar .user-panel,
+.main-sidebar .form-inline,
+.main-sidebar .nav-sidebar {
+    position: relative;
+    z-index: 1;
+}
+
+.main-sidebar .form-control-sidebar,
+.main-sidebar .btn-sidebar {
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(255,255,255,0.08) !important;
+}
+
+.main-sidebar .user-panel img {
+    border-color: rgba(255,255,255,0.88) !important;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25) !important;
 }
 </style>
 </head>
@@ -747,8 +955,15 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
       </li>
   
 <!-- Notifications Dropdown Menu -->
-<li class="nav-item dropdown">
-  <a class="nav-link" data-toggle="dropdown" href="#">
+<li class="nav-item dropdown" id="notificationDropdown">
+  <a class="nav-link dropdown-toggle"
+     id="notificationBellBtn"
+     data-toggle="dropdown"
+     data-display="static"
+     href="#"
+     role="button"
+     aria-haspopup="true"
+     aria-expanded="false">
     <i class="far fa-bell"></i>
     <span id="notificationBadge"
           class="badge badge-warning navbar-badge"
@@ -756,7 +971,9 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
     </span>
   </a>
 
-  <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+  <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right"
+       id="notificationDropdownMenu"
+       aria-labelledby="notificationBellBtn">
     <span class="dropdown-item dropdown-header"
           id="notificationHeader">
         0 Notifications
@@ -768,6 +985,14 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
         <span class="dropdown-item text-muted text-center">
             No new notifications
         </span>
+    </div>
+
+    <div id="notificationPreview" class="px-3 py-2" style="display:none;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <strong id="notificationPreviewTitle">Comment Preview</strong>
+        <button type="button" id="notificationPreviewBack" class="btn btn-xs btn-light">Back</button>
+      </div>
+      <div id="notificationPreviewBody" class="small" style="max-height:260px;overflow:auto;"></div>
     </div>
 
     <div class="dropdown-divider"></div>
@@ -842,7 +1067,7 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
                    <?= ucfirst($username) ?> 
                 </div>
                 <div style="font-weight:400;font-size:12px; color:#6c757d;">
-    <?= ucfirst($this->session->userdata('role_name')); ?>
+    <?= ucfirst($this->session->userdata('department_n')); ?>
 </div>
 
             </div>
@@ -923,8 +1148,7 @@ foreach($menus as $m){
 <?php } ?>
 <?php } ?>
 
-</ul>
-</nav>
+
 
 
 <!-- LOGOUT -->
@@ -935,7 +1159,8 @@ foreach($menus as $m){
   </a>
 </li>
 
-
+</ul>
+</nav>
 
 
     </div>

@@ -28,3 +28,5 @@ $route['list']          = 'TRS/list';
 $route['add']           = 'TRS/add';
 $route['edit/(:num)']   = 'TRS/edit/$1';
 $route['delete/(:num)'] = 'TRS/delete/$1';
+
+?>

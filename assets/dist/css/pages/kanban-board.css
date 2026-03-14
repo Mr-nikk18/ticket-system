@@ -1,0 +1,81 @@
+.kanban-shell {
+  padding: 0 1rem 1.5rem;
+}
+
+.kanban-board-box {
+  background: #ffffff;
+  border: 1px solid #dfe7ef;
+  border-radius: 16px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  padding: 1.25rem;
+}
+
+.kanban-board-grid {
+  margin-left: -10px;
+  margin-right: -10px;
+}
+
+.kanban-board-grid > [class*="col-"] {
+  padding-left: 10px;
+  padding-right: 10px;
+  margin-bottom: 1rem;
+}
+
+.kanban-board-box .card {
+  border: 1px solid #e7edf4;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: none;
+  margin-bottom: 0;
+}
+
+.kanban-board-box .card-header {
+  padding: 0.9rem 1rem;
+  font-weight: 700;
+}
+
+.kanban-board-box .kanban-column,
+.kanban-board-box .kanban-team-column {
+  min-height: 520px;
+  background: #f8fafc;
+  padding: 0.85rem;
+}
+
+.kanban-board-box .kanban-column.kanban-drop-blocked .ui-sortable-placeholder {
+  display: none !important;
+}
+
+.kanban-board-box .ticket-card {
+  border-radius: 12px;
+  border: 1px solid #dde6f0 !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  cursor: pointer;
+}
+
+.kanban-board-box .ticket-card.is-draggable {
+  cursor: grab;
+}
+
+.kanban-board-box .ticket-card.is-locked {
+  opacity: 0.9;
+}
+
+.kanban-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.kanban-comment-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #fff4e5;
+  color: #b45309;
+  font-size: 0.75rem;
+  font-weight: 700;
+}

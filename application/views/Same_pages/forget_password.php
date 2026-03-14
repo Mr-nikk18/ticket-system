@@ -28,7 +28,7 @@
     <div class="card-body login-card-body">
       
 
-<form action="<?= base_url('check') ?>" method="post">
+<form action="<?= base_url('check') ?>" method="post" id="forgotForm">
       
         <input type="email" id="email" name="email" class="form-control">
 <div id="email-msg" style="display:block;margin-top:5px;"></div>
@@ -90,6 +90,15 @@
 
 });
 
+</script>
+<script>
+document.getElementById("forgotForm").addEventListener("submit", function() {
+
+    let btn = this.querySelector("button[type='submit']");
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+
+});
 </script>
    </body>
 </html>

@@ -1,3 +1,5 @@
+
+
 <div class="col-12 mt-3">
 
 
@@ -57,12 +59,14 @@
 </td>
 
                 <td>
-  <?php if ($ticket['can_accept'] == 1) { ?>
+                
+  <?php $department_id= $this->session->userdata('department_id');?>           
+  <?php if ($ticket['can_accept'] == 1 && $department_id == 2) { ?>
       <a href="<?= base_url('TRS/accept_ticket/'.$ticket['ticket_id']) ?>"
          class="btn btn-sm btn-success">
          Accept
       </a>
-  <?php } else { ?>
+      <?php } else { ?>
       <span class="badge badge-secondary">No action  </span>
   <?php } ?>
 </td>

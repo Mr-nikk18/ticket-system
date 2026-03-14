@@ -24,7 +24,7 @@
     <div class="card-body register-card-body">
       <p class="login-box-msg">Reset Password</p>
 
-      <form action="<?= base_url('Modify') ?>" method="post">
+      <form id="resetForm" action="<?= base_url('Modify') ?>" method="post">
         <input type="hidden" name="token" value="<?= $token ?>">
         <div class="input-group mb-3">
           <input type="password" class="form-control" placeholder="Password" name="password" >
@@ -96,7 +96,23 @@ $(document).ready(function () {
         checkPasswordMatch();
     });
 
+    // 🔥 Submit ke baad disable
+    $('#resetForm').on('submit', function () {
+
+        // Extra safety check
+        let password = $('input[name="password"]').val();
+        let confirm  = $('input[name="confirm_password"]').val();
+
+        if (password !== confirm) {
+            return false;
+        }
+
+        $('#updateBtn')
+            .prop('disabled', true)
+            .html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+    });
 });
+
 </script>
 
 

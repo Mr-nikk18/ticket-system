@@ -1,3 +1,4 @@
+
 <?php
 $this->load->view('Layout/Header');
 ?>
@@ -75,7 +76,7 @@ $this->load->view('Layout/Header');
                 <thead>
                   <tr>
                     <th>No.</th>
-                    <?php if (in_array($this->session->userdata('role_id'), [2, 3])) { ?>
+                    <?php if (in_array($this->session->userdata('department_id'), [2])) { ?>
                       <th>User Name</th>
                       <th>Department</th>
                     <?php } ?>
@@ -97,7 +98,7 @@ $this->load->view('Layout/Header');
                   <?php foreach ($val as $value) { ?>
                     <tr>
                       <td><?= $n ?></td>
-                      <?php if (in_array($this->session->userdata('role_id'), [2, 3])) { ?>
+                      <?php if (in_array($this->session->userdata('department_id'), [2])) { ?>
                         <td><?= $value['user_full_name'] ?></td>
                         <td><?= $value['department_name'] ?></td>
                       <?php } ?>
@@ -183,19 +184,22 @@ $this->load->view('Layout/Header');
                       <!-- EDIT -->
                       <td>
                         <?php
-                        $role_id = $this->session->userdata('role_id');
+                        $role_id=$this->session->userdata('role_id');
+                        $department_id = $this->session->userdata('department_id');
                         $user_id = $this->session->userdata('user_id');
                         ?>
 
                         <!-- ================= USER ================= -->
-                        <?php if ($role_id == 1) { ?>
+                        <?php if ($value['user_id'] == $this->session->userdata('user_id')) { ?>
 
                           <?php
                           $reopen = $this->session->userdata('reopen_edit_allowed');
+              
                           ?>
 
                           <!-- 🟡 RESOLVED → ASK CONFIRMATION -->
-                          <?php if ($value['status_id'] == 3) { ?>
+                        <?php if ($value['status_id'] == 3 && 
+          $value['user_id'] == $this->session->userdata('user_id')) { ?>
 
                             <span class="text-info d-block mb-1">Is issue solved?</span>
 
@@ -212,7 +216,7 @@ $this->load->view('Layout/Header');
            class="btn btn-sm btn-primary mb-1">Edit</a> -->
 
                             <a
-                              class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#editModal" onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a>
+                              class="btn btn-sm btn-primary mb-1" href="javascript:void(0)" onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a>
 
 
                             <br>
@@ -231,27 +235,76 @@ $this->load->view('Layout/Header');
                           ) { ?>
 
                             <a
-                              class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#editModal"
-
+                              class="btn btn-sm btn-primary mb-1" href="javascript:void(0)"
                               onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a>
 
 
-                            <!-- 🔴 ALL OTHER CASES -->
-                          <?php } else { ?>
-
-                            <span class="badge badge-secondary">No Action</span>
-
+                            
                           <?php } ?>
-
                         <?php } ?>
 
 
 
+                        <!-- ================= IT HEAD ================= -->
+                        <?php if ($role_id == 2 && $department_id == 2) { ?>
 
+                        
+                        <?php if ($value['status_id'] == 1) { ?>
+                            <!-- Edit only if admin raised this ticket -->
+        <?php if ($value['user_id'] == $this->session->userdata('user_id')) { ?>
+            <a class="btn btn-sm btn-warning mb-1"
+               href="javascript:void(0)"
+               onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
+        <?php } ?>
+                            <a href="<?= base_url('TRS/accept_ticket/' . $value['ticket_id']) ?>"
+                              class="btn btn-sm btn-success mb-1">Accept</a><br>
+
+                            <a class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#assignModal"
+                              onclick="assign(<?= $value['ticket_id'] ?>)">Assign</a><br>
+                            <a href="<?= base_url('TRS/delete/' . $value['ticket_id']) ?>"
+                              class="btn btn-sm btn-danger"
+                              onclick="return confirm('Delete ticket?');">
+                              Delete
+                            </a><br>
+                            <a
+                              class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
+                              onclick="history(<?= $value['ticket_id'] ?>)">History</a><br>
+
+                          <?php } elseif ($value['status_id'] == 2 || ($value['status_id'] == 3)) { ?>
+
+                            <a class="btn btn-sm btn-primary mb-1" href="javascript:void(0)"
+                              onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
+                              <?php if($value['assigned_engineer_id'] == $user_id){ ?>
+                            <a href="javascript:void(0);"  data-toggle="modal" data-target="#LeaveModal"
+                             onclick="openLeaveModal(<?= $value['ticket_id'] ?>)"
+                              class="btn btn-sm btn-warning">Leave</a><br>
+                              <?php } ?>
+                               <?php if($value['assigned_engineer_id'] == $user_id){ ?>
+                            <a class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#reassignModal"
+                              onclick="reassign(<?= $value['ticket_id'] ?>)">Handover</a><br>
+                              <?php } ?>
+                            <a href="<?= base_url('TRS/delete/' . $value['ticket_id']) ?>"
+                              class="btn btn-sm btn-danger"
+                              onclick="return confirm('Delete ticket?');">
+                              Delete
+                            </a><br>
+
+                            <a
+                              class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
+                              onclick="history(<?= $value['ticket_id'] ?>)">History</a><br>
+
+                          <?php } else { ?>
+
+                            <a
+                              class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
+                              onclick="history(<?= $value['ticket_id'] ?>)">History</a>
+
+                          <?php } ?>
+                        <?php } ?>
 
                         <!-- ================= DEVELOPER ================= -->
 
-                        <?php if ($role_id == 2) { ?>
+                        <?php if ($department_id == 2 && $role_id==1) { ?>
 
                           <?php if ($value['status_id'] == 1 && empty($value['assigned_engineer_id'])) { ?>
 
@@ -270,7 +323,7 @@ $this->load->view('Layout/Header');
 
                             <!-- EDIT -->
                             <a class="btn btn-sm btn-primary mb-1"
-                              data-toggle="modal" data-target="#editModal"
+                              href="javascript:void(0)"
                               onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
 
                             <!-- LEAVE -->
@@ -302,68 +355,6 @@ $this->load->view('Layout/Header');
                           <?php } ?>
 
                         <?php } ?>
-
-
-
-                        <!-- ================= IT HEAD ================= -->
-                        <?php if ($role_id == 3) { ?>
-
-                        
-                        <?php if ($value['status_id'] == 1) { ?>
-                            <!-- Edit only if admin raised this ticket -->
-        <?php if ($value['user_id'] == $this->session->userdata('user_id')) { ?>
-            <a class="btn btn-sm btn-warning mb-1"
-               data-toggle="modal" data-target="#editModal"
-               onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
-        <?php } ?>
-                            <a href="<?= base_url('TRS/accept_ticket/' . $value['ticket_id']) ?>"
-                              class="btn btn-sm btn-success mb-1">Accept</a><br>
-
-                            <a class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#assignModal"
-                              onclick="assign(<?= $value['ticket_id'] ?>)">Assign</a><br>
-                            <a href="<?= base_url('TRS/delete/' . $value['ticket_id']) ?>"
-                              class="btn btn-sm btn-danger"
-                              onclick="return confirm('Delete ticket?');">
-                              Delete
-                            </a><br>
-                            <a
-                              class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
-                              onclick="history(<?= $value['ticket_id'] ?>)">History</a><br>
-
-                          <?php } elseif ($value['status_id'] == 2 || ($value['status_id'] == 3)) { ?>
-
-                            <a class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#editModal"
-                              onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
-                              <?php if($value['assigned_engineer_id'] == $user_id){ ?>
-                            <a href="javascript:void(0);"  data-toggle="modal" data-target="#LeaveModal"
-                             onclick="openLeaveModal(<?= $value['ticket_id'] ?>)"
-                              class="btn btn-sm btn-warning">Leave</a><br>
-                              <?php } ?>
-                               <?php if($value['assigned_engineer_id'] == $user_id){ ?>
-                            <a class="btn btn-sm btn-primary mb-1" data-toggle="modal" data-target="#reassignModal"
-                              onclick="reassign(<?= $value['ticket_id'] ?>)">Handover</a><br>
-                              <?php } ?>
-                            <a href="<?= base_url('TRS/delete/' . $value['ticket_id']) ?>"
-                              class="btn btn-sm btn-danger"
-                              onclick="return confirm('Delete ticket?');">
-                              Delete
-                            </a><br>
-
-                            <a
-                              class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
-                              onclick="history(<?= $value['ticket_id'] ?>)">History</a><br>
-
-                          <?php } else { ?>
-
-                            <a
-                              class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
-                              onclick="history(<?= $value['ticket_id'] ?>)">History</a>
-
-                          <?php } ?>
-                        <?php } ?>
-
-
-
                       </td>
 
                     </tr>
@@ -444,14 +435,9 @@ $this->load->view('Layout/Header');
                 </label>
               </div>
             </div>
-
+              <button type="button" class="btn btn-outline-light" data-dismiss="modal">Close</button>
+                        <button type="submit" id="submitb" class="btn btn-outline-light">Generate Ticket</button>
           </div>
-        </div>
-
-
-        <div class="modal-footer justify-content-between">
-          <button type="button" class="btn btn-outline-light" data-dismiss="modal">Close</button>
-          <button type="submit" class="btn btn-outline-light">Generate Ticket</button>
         </div>
       </div>
       <!-- /.modal-content -->
@@ -467,7 +453,7 @@ $this->load->view('Layout/Header');
   <div class="modal-dialog">
     <div class="modal-content bg-light">
 
-      <div class="modal-header">
+      <div class="modal-header bg-warning">
         <h4 class="modal-title">Edit Ticket</h4>
         <button type="button" class="close" data-dismiss="modal">
           <span>&times;</span>
@@ -476,11 +462,18 @@ $this->load->view('Layout/Header');
 
       <div class="modal-body">
 
-        <form id="editForm">
+    <!-- 🔥 Loader -->
+    <div id="editLoader" class="text-center p-4">
+        <h5>Loading...</h5>
+    </div>
+
+    <!-- 🔥 Form hidden initially -->
+    <div id="editContent" style="display:none;">
+               <form id="editForm">
           <input type="hidden" name="ticket_id" id="edit_ticket_id">
 
           <!-- USER -->
-          <?php if ($this->session->userdata('role_id') == 1) { ?>
+          <?php if ($this->session->userdata('department_id') != 2) { ?>
             <div id="userSection" class="role-section">
               <div class="form-group">
                 <label>Title</label>
@@ -507,14 +500,16 @@ $this->load->view('Layout/Header');
                 </div>
                 <button type="button" class="btn btn-sm btn-primary" id="addTaskFieldEdit">
                     + Add More Task
+                </button><br>
+                <button id="updt" type="submit" class="btn btn-primary mt-2">
+                  Update Ticket
                 </button>
-                
             </div>
             </div>
           <?php } ?>
 
           <!-- DEVELOPER -->
-          <?php if ($this->session->userdata('role_id') == 2) { ?>
+          <?php if ($this->session->userdata('department_id') == 2 && $this->session->userdata('role_id') == 1) { ?>
             <div id="devSection" class="role-section">
               <div class="form-group">
                 <label>Title</label>
@@ -544,11 +539,14 @@ $this->load->view('Layout/Header');
                   <option value="3">Resolved</option>
                 </select>
               </div>
+              <button id="updt" type="submit" class="btn btn-primary mt-2">
+                  Update Ticket
+                </button>
             </div>
           <?php } ?>
 
           <!-- ADMIN -->
-          <?php if ($this->session->userdata('role_id') == 3) { ?>
+          <?php if ($this->session->userdata('department_id') == 2 && $this->session->userdata('role_id') == 2) { ?>
             <div id="adminSection" class="role-section">
               <div class="form-group">
                 <label>Title</label>
@@ -579,15 +577,18 @@ $this->load->view('Layout/Header');
                   <option value="4">Closed</option>
                 </select>
               </div>
+                <button id="updt" type="submit" class="btn btn-primary mt-2">
+                 Update Ticket
+              </button>
+
             </div>
           <?php } ?>
 
-          <button type="submit" class="btn btn-primary mt-2">
-            Update Ticket
-          </button>
+          
         </form>
+    </div>
 
-      </div>
+    </div>
     </div>
   </div>
 </div>
@@ -669,7 +670,7 @@ $this->load->view('Layout/Header');
 
         <div class="modal-footer justify-content-between">
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-          <button type="submit" class="btn btn-primary">Assign Developer</button>
+          <button type="submit" id="assignbtn" class="btn btn-primary">Assign Developer</button>
         </div>
 
       </form>

@@ -1,0 +1,19 @@
+.ticket-summary-task {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  margin-bottom: 0.45rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.ticket-summary-task i {
+  color: #2563eb;
+}
+
+.task-card.task-completed .task-comment-composer {
+  display: none;
+}
