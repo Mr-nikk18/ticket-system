@@ -27,6 +27,12 @@ $this->load->view('Layout/Header');
   <!-- Main content -->
   <section class="content">
     <div class="container-fluid">
+      <?php
+      $role_id = (int) $this->session->userdata('role_id');
+      $department_id = (int) $this->session->userdata('department_id');
+      $user_id = (int) $this->session->userdata('user_id');
+      $showDepartmentColumn = ($department_id === 2 || $role_id === 2);
+      ?>
       <div class="row">
         <div class="col-12">
           <div class="card">
@@ -46,13 +52,35 @@ $this->load->view('Layout/Header');
                     default: echo "All Tickets";
                 }
             }else{
-                echo "All Tickets";
+                if (($ticket_scope ?? 'all_tickets') === 'my_tickets') {
+                    echo "My Tickets";
+                } elseif (($ticket_scope ?? 'all_tickets') === 'my_accepted') {
+                    echo "My Accepted Tickets";
+                } else {
+                    echo "All Tickets";
+                }
             }
             ?>
         </h3>
 
         <!-- PUSH RIGHT -->
-        <div class="ml-auto">
+        <div class="ml-auto d-flex align-items-center flex-wrap" style="gap:0.5rem;">
+            <form id="ticketFilterForm" method="get" action="<?= base_url('TRS/list') ?>" class="mb-0 d-flex align-items-center flex-wrap" style="gap:0.5rem;">
+              <select name="ticket_scope" class="custom-select custom-select-sm js-ticket-list-filter">
+                <option value="all_tickets" <?= ($ticket_scope ?? 'all_tickets') === 'all_tickets' ? 'selected' : '' ?>>All Tickets</option>
+                <option value="my_tickets" <?= ($ticket_scope ?? '') === 'my_tickets' ? 'selected' : '' ?>>My Tickets</option>
+                <option value="my_accepted" <?= ($ticket_scope ?? '') === 'my_accepted' ? 'selected' : '' ?>>My Accepted Tickets</option>
+              </select>
+
+              <select name="status_id" class="custom-select custom-select-sm js-ticket-list-filter">
+                <option value="">All Statuses</option>
+                <option value="1" <?= (int) ($status_filter ?? 0) === 1 ? 'selected' : '' ?>>Open</option>
+                <option value="2" <?= (int) ($status_filter ?? 0) === 2 ? 'selected' : '' ?>>In Process</option>
+                <option value="3" <?= (int) ($status_filter ?? 0) === 3 ? 'selected' : '' ?>>Resolved</option>
+                <option value="4" <?= (int) ($status_filter ?? 0) === 4 ? 'selected' : '' ?>>Closed</option>
+              </select>
+            </form>
+
             <button class="btn btn-secondary mr-2" id="refreshBoard">
                 🔄 Refresh
             </button>
@@ -76,7 +104,7 @@ $this->load->view('Layout/Header');
                 <thead>
                   <tr>
                     <th>No.</th>
-                    <?php if (in_array($this->session->userdata('department_id'), [2])) { ?>
+                    <?php if ($showDepartmentColumn) { ?>
                       <th>User Name</th>
                       <th>Department</th>
                     <?php } ?>
@@ -98,7 +126,7 @@ $this->load->view('Layout/Header');
                   <?php foreach ($val as $value) { ?>
                     <tr>
                       <td><?= $n ?></td>
-                      <?php if (in_array($this->session->userdata('department_id'), [2])) { ?>
+                      <?php if ($showDepartmentColumn) { ?>
                         <td><?= $value['user_full_name'] ?></td>
                         <td><?= $value['department_name'] ?></td>
                       <?php } ?>
@@ -184,13 +212,16 @@ $this->load->view('Layout/Header');
                       <!-- EDIT -->
                       <td>
                         <?php
-                        $role_id=$this->session->userdata('role_id');
-                        $department_id = $this->session->userdata('department_id');
-                        $user_id = $this->session->userdata('user_id');
+                        $ownerDepartmentId = isset($value['owner_department_id']) ? (int) $value['owner_department_id'] : $department_id;
+                        $isCrossDepartmentReadonly = ($role_id == 2 && $ownerDepartmentId !== $department_id);
                         ?>
 
+                        <?php if ($isCrossDepartmentReadonly) { ?>
+                          <span class="badge badge-secondary">Read only</span>
+                        <?php } ?>
+
                         <!-- ================= USER ================= -->
-                        <?php if ($value['user_id'] == $this->session->userdata('user_id')) { ?>
+                        <?php if (!$isCrossDepartmentReadonly && $value['user_id'] == $this->session->userdata('user_id')) { ?>
 
                           <?php
                           $reopen = $this->session->userdata('reopen_edit_allowed');
@@ -246,7 +277,7 @@ $this->load->view('Layout/Header');
 
 
                         <!-- ================= IT HEAD ================= -->
-                        <?php if ($role_id == 2 && $department_id == 2) { ?>
+                        <?php if (!$isCrossDepartmentReadonly && $role_id == 2 && $department_id == 2) { ?>
 
                         
                         <?php if ($value['status_id'] == 1) { ?>
@@ -304,7 +335,7 @@ $this->load->view('Layout/Header');
 
                         <!-- ================= DEVELOPER ================= -->
 
-                        <?php if ($department_id == 2 && $role_id==1) { ?>
+                        <?php if (!$isCrossDepartmentReadonly && $department_id == 2 && $role_id==1) { ?>
 
                           <?php if ($value['status_id'] == 1 && empty($value['assigned_engineer_id'])) { ?>
 

@@ -107,13 +107,126 @@ class TRS extends My_Controller
         );
     }
 
+    protected function getCurrentUserContext()
+    {
+        return [
+            'role_id' => (int) $this->session->userdata('role_id'),
+            'department_id' => (int) $this->session->userdata('department_id'),
+            'user_id' => (int) $this->session->userdata('user_id'),
+        ];
+    }
+
+    protected function ensureRoleAccess($roles)
+    {
+        $roles = (array) $roles;
+
+        if (!in_array((int) $this->session->userdata('role_id'), $roles, true)) {
+            show_error('Unauthorized');
+        }
+    }
+
+    protected function ensureDepartmentAccess($departments)
+    {
+        $departments = (array) $departments;
+
+        if (!in_array((int) $this->session->userdata('department_id'), $departments, true)) {
+            show_error('Unauthorized');
+        }
+    }
+
+    protected function respondJson(array $payload)
+    {
+        echo json_encode($payload);
+    }
+
+    private function canEditTicket(array $ticket, $ticket_id, $department_id)
+    {
+        if ((int) $department_id === 2) {
+            return true;
+        }
+
+        if (in_array((int) $ticket['status_id'], [3, 4], true)) {
+            return false;
+        }
+
+        if ((int) $ticket['status_id'] === 1 && !empty($ticket['assigned_engineer_id'])) {
+            return false;
+        }
+
+        if ((int) $ticket['status_id'] !== 2) {
+            return true;
+        }
+
+        $reopen = $this->session->userdata('reopen_edit_allowed');
+
+        return is_array($reopen)
+            && isset($reopen[$ticket_id])
+            && $reopen[$ticket_id] === true;
+    }
+
+    private function syncTicketTasks($ticket_id, $tasks, $created_by)
+    {
+        if (empty($tasks) || !is_array($tasks)) {
+            return;
+        }
+
+        $this->db->where('ticket_id', $ticket_id)->delete('ticket_tasks');
+
+        $position = 1;
+
+        foreach ($tasks as $task) {
+            $task = trim($task);
+
+            if ($task === '') {
+                continue;
+            }
+
+            $this->db->insert('ticket_tasks', [
+                'ticket_id' => $ticket_id,
+                'task_title' => $task,
+                'is_completed' => 0,
+                'position' => $position,
+                'created_by' => $created_by
+            ]);
+
+            $position++;
+        }
+    }
+
+    private function buildUserPayload($departmentColumn, $departmentPostKey, $includePassword = true)
+    {
+        $data = [
+            'user_name' => $this->input->post('user_name'),
+            'name' => $this->input->post('name'),
+            'email' => $this->input->post('email'),
+            'company_name' => $this->input->post('company_name'),
+            'phone' => $this->input->post('phone'),
+            $departmentColumn => $this->input->post($departmentPostKey),
+            'role_id' => $this->input->post('role_id'),
+            'status' => 'Active'
+        ];
+
+        if ($includePassword) {
+            $password = $this->input->post('password');
+            $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+        } else {
+            $password = trim($this->input->post('password'));
+
+            if ($password !== '') {
+                $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+            }
+        }
+
+        return $data;
+    }
+
     /* ================= DASHBOARD ================= */
 
     public function dashboard()
     {
         $this->load->model('TRS_model');
 
-        $role_id = $this->session->userdata('role_id');
+        $user = $this->getCurrentUserContext();
         $dep_id= $this->session->userdata('department_id');
         $user_id = $this->session->userdata('user_id');
 
@@ -123,6 +236,7 @@ class TRS extends My_Controller
         $data['in_proess_count'] = $this->TRS_model->count_tickets_by_status(2, $uid);
         $data['resolved_count']   = $this->TRS_model->count_tickets_by_status(3, $uid);
         $data['closed_count']     = $this->TRS_model->count_tickets_by_status(4, $uid);
+        $data['total_count']      = $data['open_count'] + $data['in_proess_count'] + $data['resolved_count'] + $data['closed_count'];
 
 
 
@@ -183,8 +297,6 @@ class TRS extends My_Controller
 
    public function list($status = null)
 {
-
-
     if (!$this->session->userdata('is_login')) {
         redirect('verify');
     }
@@ -194,21 +306,37 @@ class TRS extends My_Controller
             ->get_menus_by_role($this->session->userdata('role_id'));
 
     $this->load->model('TRS_model');
+    $user = $this->getCurrentUserContext();
+    $ticket_scope = (string) $this->input->get('ticket_scope', true);
+    $allowed_scopes = ['all_tickets', 'my_tickets', 'my_accepted'];
 
-    $role_id = $this->session->userdata('role_id');
-    $dep_id = $this->session->userdata('department_id');
-    $user_id = $this->session->userdata('user_id');
+    if (!in_array($ticket_scope, $allowed_scopes, true)) {
+        $ticket_scope = 'all_tickets';
+    }
 
     $allowed_status = [1, 2, 3, 4];
+    $status_query = (int) $this->input->get('status_id');
 
-    if ($status != null && !in_array((int)$status, $allowed_status)) {
+    if ($status_query > 0) {
+        $status = $status_query;
+    }
+
+    if ($status != null && !in_array((int)$status, $allowed_status, true)) {
         show_error('Invalid status');
     }
 
     $status = $status != null ? (int)$status : null;
-    $data['val'] = $this->TRS_model->get_visible_tickets_for_list($role_id, $dep_id, $user_id, $status);
+    $data['val'] = $this->TRS_model->get_visible_tickets_for_list(
+        $user['role_id'],
+        $user['department_id'],
+        $user['user_id'],
+        $status,
+        $ticket_scope
+    );
 
     $data['current_status'] = $status;
+    $data['status_filter'] = $status;
+    $data['ticket_scope'] = $ticket_scope;
 
     $this->load->view('Users/List', $data);
 }
@@ -299,17 +427,13 @@ class TRS extends My_Controller
 
     public function accept_ticket($ticket_id)
     {
-        if (!in_array($this->session->userdata('department_id'), [2])) {
-            show_error('Unauthorized');
-        }
-
+        $this->ensureDepartmentAccess([2]);
         $this->load->model('TRS_model');
-
-        $user_id = $this->session->userdata('user_id');
+        $user = $this->getCurrentUserContext();
 
         // 1️⃣ Update ticket
         $this->TRS_model->update_ticket($ticket_id, [
-            'assigned_engineer_id' => $user_id,
+            'assigned_engineer_id' => $user['user_id'],
             'status_id' => 2,
             'accepted_at' => date('Y-m-d H:i:s')
         ]);
@@ -318,13 +442,13 @@ class TRS extends My_Controller
         $this->TRS_model->insert_assignment_history([
             'ticket_id'   => $ticket_id,
             'action_type' => 'accept',
-            'assigned_to' => $user_id,
-            'assigned_by' => $user_id,
+            'assigned_to' => $user['user_id'],
+            'assigned_by' => $user['user_id'],
             'remarks'     => 'Ticket accepted by developer',
             'created_at'  => date('Y-m-d H:i:s')
         ]);
 
-        $this->notifyTicketOwnerAssignment($ticket_id, $user_id, 'accepted');
+        $this->notifyTicketOwnerAssignment($ticket_id, $user['user_id'], 'accepted');
 
         redirect('TRS/my_tickets');
     }
@@ -332,9 +456,7 @@ class TRS extends My_Controller
 
     public function leave_ticket($ticket_id)
     {
-        if ($this->session->userdata('department_id') != 2) {
-            show_error('Unauthorized');
-        }
+        $this->ensureDepartmentAccess([2]);
 
         $this->load->model('TRS_model');
 
@@ -367,12 +489,16 @@ class TRS extends My_Controller
     {
         $this->load->model('TRS_model');
 
-        $role_id = $this->session->userdata('role_id');
+        $user = $this->getCurrentUserContext();
          $dep_id = $this->session->userdata('department_id');  // 🔥 MISSING LINE
 
         $ticket  = $this->TRS_model->get_data_by_id($ticket_id);
 
         if (!$ticket) show_error('Ticket not found');
+
+        if (!$this->canEditTicket($ticket, $ticket_id, (int) $this->session->userdata('department_id'))) {
+            show_error('Unauthorized');
+        }
 
         // ---- USER RULES ----
         if ($dep_id != 2) {
@@ -425,8 +551,13 @@ class TRS extends My_Controller
         $tasks = $this->TRS_model->get_tasks_by_ticket($ticket_id); // 🔥 NEW
 
         if (!$ticket) {
-            echo json_encode(['status' => false, 'msg' => 'Ticket not found']);
-            exit;
+            $this->respondJson(['status' => false, 'msg' => 'Ticket not found']);
+            return;
+        }
+
+        if (!$this->canEditTicket($ticket, $ticket_id, (int) $this->session->userdata('department_id'))) {
+            $this->respondJson(['status' => false, 'msg' => 'Unauthorized']);
+            return;
         }
 
         /* USER RULES (unchanged) */
@@ -459,16 +590,16 @@ class TRS extends My_Controller
             'developers' => $developers,
             'tasks'      => $tasks  // 🔥 SEND TASKS
         ]);
-        exit;
+        return;
     }
 
     public function update_ajax()
     {
         $ticket_id = $this->input->post('ticket_id');
-        $role_id   = $this->session->userdata('role_id');
+        $user = $this->getCurrentUserContext();
          $dept_id = $this->session->userdata('department_id');  // 🔥 MISSING LINE
         if (!$ticket_id) {
-            echo json_encode([
+            $this->respondJson([
                 'status' => false,
                 'msg' => 'Invalid ticket'
             ]);
@@ -478,18 +609,18 @@ class TRS extends My_Controller
         $data = [];
 
         // USER
-        if ($role_id == 1) {
+        if ($user['role_id'] == 1) {
             $data['title']       = $this->input->post('title', true);
             $data['description'] = $this->input->post('description', true);
         }
 
         // DEVELOPER
-        if ($role_id == 1 && $dept_id == 2 ) {
+        if ($user['role_id'] == 1 && $this->session->userdata('department_id') == 2 ) {
             $data['status_id'] = $this->input->post('status_id');
         }
 
         // ADMIN
-        if ($role_id == 2) {
+        if ($user['role_id'] == 2) {
             $data['assigned_engineer_id'] = $this->input->post('assigned_engineer_id');
             $data['status_id']            = $this->input->post('status_id');
         }
@@ -502,37 +633,11 @@ class TRS extends My_Controller
         }
 
         // 🔥 TASK UPDATE (only for user)
-        if ($role_id == 1 && $dept_id != 2) { 
-
-            $tasks = $this->input->post('tasks');
-
-            if (!empty($tasks)) {
-
-                // delete old
-                $this->db->where('ticket_id', $ticket_id)
-                    ->delete('ticket_tasks');
-
-                $position = 1;
-
-                foreach ($tasks as $task) {
-
-                    if (trim($task) != '') {
-
-                        $this->db->insert('ticket_tasks', [
-                            'ticket_id'   => $ticket_id,
-                            'task_title'  => $task,
-                            'is_completed' => 0,
-                            'position'    => $position,
-                            'created_by'  => $this->session->userdata('user_id')
-                        ]);
-
-                        $position++;
-                    }
-                }
-            }
+        if ($user['role_id'] == 1 && $this->session->userdata('department_id') != 2) {
+            $this->syncTicketTasks($ticket_id, $this->input->post('tasks'), $user['user_id']);
         }
 
-        echo json_encode(['status' => true]);
+        $this->respondJson(['status' => true]);
     }
 
     public function do_assign_ajax()
@@ -588,7 +693,7 @@ class TRS extends My_Controller
             'ticket_id'   => $ticket_id,
             'action_type' => 'assign',
             'assigned_to' => $dev_id,
-            'assigned_by' => $this->session->userdata('user_id'),
+            'assigned_by' => $user['user_id'],
             'remarks'     => $reason,
             'created_at'  => date('Y-m-d H:i:s')
         ]);
@@ -739,6 +844,9 @@ class TRS extends My_Controller
 
         $data['val'] = $this->TRS_model
             ->get_my_accepted_tickets($this->session->userdata('user_id'));
+        $data['ticket_scope'] = 'my_accepted';
+        $data['status_filter'] = null;
+        $data['current_status'] = null;
 
 
         $this->load->view('Users/List', $data);
@@ -758,26 +866,10 @@ class TRS extends My_Controller
     /* ================= SAVE USER ================= */
     public function save_user()
     {
-        if ($this->session->userdata('department_id') != 2) {
-            show_error('Unauthorized access');
-        }
-
+        $this->ensureDepartmentAccess([2]);
         $this->load->model('User_model');
-
-        $password = $this->input->post('password');
-
-        $data = [
-            'user_id' => $this->input->post('user_id'),
-            'user_name'  => $this->input->post('user_name'),
-            'name'       => $this->input->post('name'),
-            'email'      => $this->input->post('email'),
-            'company_name' => $this->input->post('company_name'),
-            'phone'      => $this->input->post('phone'),
-            'department' => $this->input->post('department'),
-            'role_id'    => $this->input->post('role_id'), // 2 or 3
-            'password'   => password_hash($password, PASSWORD_DEFAULT),
-            'status'     => 'Active'
-        ];
+        $data = $this->buildUserPayload('department', 'department');
+        $data['user_id'] = $this->input->post('user_id');
 
         $this->User_model->insert_user($data);
 
@@ -789,7 +881,7 @@ class TRS extends My_Controller
     public function save_userlist_ajax()
     {
         if ($this->session->userdata('role_id') != 2) {
-            echo json_encode([
+            $this->respondJson([
                 'status' => false,
                 'message' => 'Unauthorized access'
             ]);
@@ -797,29 +889,16 @@ class TRS extends My_Controller
         }
 
         $this->load->model('User_model');
-
-        $password = $this->input->post('password');
-
-        $data = [
-            'user_id'      => $this->input->post('user_id'),
-            'user_name'   => $this->input->post('user_name'),
-            'name'        => $this->input->post('name'),
-            'email'       => $this->input->post('email'),
-            'company_name' => $this->input->post('company_name'),
-            'phone'       => $this->input->post('phone'),
-            'department'  => $this->input->post('department'),
-            'role_id'     => $this->input->post('role_id'),
-            'password'    => password_hash($password, PASSWORD_DEFAULT),
-            'status'      => 'Active'
-        ];
+        $data = $this->buildUserPayload('department', 'department');
+        $data['user_id'] = $this->input->post('user_id');
 
         if ($this->User_model->insert_user($data)) {
-            echo json_encode([
+            $this->respondJson([
                 'status' => true,
                 'message' => 'User created successfully'
             ]);
         } else {
-            echo json_encode([
+            $this->respondJson([
                 'status' => false,
                 'message' => 'Failed to create user'
             ]);
@@ -909,24 +988,8 @@ class TRS extends My_Controller
 
 
 
-        $data = [
-            'user_name'  => $this->input->post('user_name'),
-            'name'       => $this->input->post('name'),
-            'email'      => $email,
-            'phone'      => $this->input->post('phone'),
-            'company_name' => $this->input->post('company_name'),
-            'department_id' => $this->input->post('department_id'),
-            'role_id'    => $this->input->post('role_id'),
-            'status'     => 'Active'
-        ];
-
-
-
-        // password update only if entered
-        $password = trim($this->input->post('password'));
-        if ($password != '') {
-            $data['password'] = password_hash($password, PASSWORD_DEFAULT);
-        }
+        $data = $this->buildUserPayload('department_id', 'department_id', false);
+        $data['email'] = $email;
         $this->User_model->update_user_stuff($user_id, $data);
         redirect('TRS/User_list');
     }
@@ -938,7 +1001,7 @@ class TRS extends My_Controller
         $user_id = $this->input->post('user_id');
 
         if (!$user_id) {
-            echo json_encode(['status' => false, 'msg' => 'Invalid User ID']);
+            $this->respondJson(['status' => false, 'msg' => 'Invalid User ID']);
             return;
         }
 
@@ -952,37 +1015,23 @@ class TRS extends My_Controller
             ->row();
 
         if ($check) {
-            echo json_encode([
+            $this->respondJson([
                 'status' => false,
                 'msg' => 'Email already exists'
             ]);
             return;
         }
 
-        $data = [
-            'user_name'    => $this->input->post('user_name'),
-            'name'         => $this->input->post('name'),
-            'email'        => $email,
-            'phone'        => $this->input->post('phone'),
-            'company_name' => $this->input->post('company_name'),
-            'department_id'   => $this->input->post('department_id'),
-            'role_id'      => $this->input->post('role_id'),
-            'status'       => 'Active'
-        ];
-
-        // password update only if entered
-        $password = trim($this->input->post('password'));
-        if ($password != '') {
-            $data['password'] = password_hash($password, PASSWORD_DEFAULT);
-        }
+        $data = $this->buildUserPayload('department_id', 'department_id', false);
+        $data['email'] = $email;
 
         if ($this->User_model->update_user_stuff($user_id, $data)) {
-            echo json_encode([
+            $this->respondJson([
                 'status' => true,
                 'msg' => 'User updated successfully'
             ]);
         } else {
-            echo json_encode([
+            $this->respondJson([
                 'status' => false,
                 'msg' => 'Update failed'
             ]);
@@ -1552,7 +1601,7 @@ public function board()
             ->where('is_completed', 0)
             ->count_all_results('ticket_tasks');
 
-        echo json_encode([
+        $this->respondJson([
             'success' => true,
             'ticket_id' => $task->ticket_id,
             'can_resolve' => $pending == 0 ? 1 : 0
@@ -1788,7 +1837,10 @@ public function board()
             return false;
         }
 
-        if ((int) $this->session->userdata('role_id') === 2 && (int) $this->session->userdata('department_id') === 2) {
+        $currentRoleId = (int) $this->session->userdata('role_id');
+        $currentDepartmentId = (int) $this->session->userdata('department_id');
+
+        if ($currentRoleId === 2) {
             return (bool) $this->db
                 ->select('tt.task_id')
                 ->from('ticket_tasks tt')
@@ -1803,11 +1855,13 @@ public function board()
             ->select('tt.task_id')
             ->from('ticket_tasks tt')
             ->join('tickets t', 't.ticket_id = tt.ticket_id')
+            ->join('users owner', 'owner.user_id = t.user_id', 'left')
             ->where('tt.task_id', $task_id)
             ->where('t.deleted_at IS NULL', null, false)
             ->group_start()
                 ->where('t.user_id', $user_id)
                 ->or_where('t.assigned_engineer_id', $user_id)
+                ->or_where('owner.department_id', $currentDepartmentId)
             ->group_end()
             ->get()
             ->row_array();
@@ -1868,14 +1922,25 @@ public function board()
         }
 
         $currentUserId = (int) $this->session->userdata('user_id');
+        $currentRoleId = (int) $this->session->userdata('role_id');
+        $currentDepartmentId = (int) $this->session->userdata('department_id');
         if ($currentUserId <= 0 || empty($ticket)) {
             return false;
         }
 
         $ticketOwnerId = isset($ticket->user_id) ? (int) $ticket->user_id : (isset($ticket['user_id']) ? (int) $ticket['user_id'] : 0);
         $assignedEngineerId = isset($ticket->assigned_engineer_id) ? (int) $ticket->assigned_engineer_id : (isset($ticket['assigned_engineer_id']) ? (int) $ticket['assigned_engineer_id'] : 0);
+        $ticketOwnerDepartmentId = isset($ticket->owner_department_id) ? (int) $ticket->owner_department_id : (isset($ticket['owner_department_id']) ? (int) $ticket['owner_department_id'] : 0);
 
-        return ($ticketOwnerId === $currentUserId || $assignedEngineerId === $currentUserId);
+        if ($ticketOwnerId === $currentUserId || $assignedEngineerId === $currentUserId) {
+            return true;
+        }
+
+        if ($currentRoleId === 2) {
+            return true;
+        }
+
+        return ($ticketOwnerDepartmentId > 0 && $ticketOwnerDepartmentId === $currentDepartmentId);
     }
 
     public function load_notification_comments()

@@ -63,33 +63,73 @@ class Dashboard extends CI_Controller
 
         // Ticket counts
         $user_id = $this->session->userdata('user_id');
+        $department_id = (int) $this->session->userdata('department_id');
+        $dashboard_ticket_status = (int) $this->input->get('dashboard_ticket_status');
+        if (!in_array($dashboard_ticket_status, [0, 1, 2, 3, 4], true)) {
+            $dashboard_ticket_status = 0;
+        }
 
-        $data['open_count']       = $this->TRS_model->get_status_count($role_id, $user_id, 1);
-        $data['in_process_count'] = $this->TRS_model->get_status_count($role_id, $user_id, 2);
-        $data['resolved_count']   = $this->TRS_model->get_status_count($role_id, $user_id, 3);
-        $data['closed_count']     = $this->TRS_model->get_status_count($role_id, $user_id, 4);
+        $all_visible_tickets = $this->TRS_model->get_visible_tickets_for_list(
+            $role_id,
+            $department_id,
+            $user_id,
+            null
+        );
+        $data['open_count'] = 0;
+        $data['in_process_count'] = 0;
+        $data['resolved_count'] = 0;
+        $data['closed_count'] = 0;
+        $data['total_count'] = count($all_visible_tickets);
 
-        // Recent tickets
-        $data['recent_tickets'] = $this->TRS_model->get_recent_tickets($role_id, $user_id, 1);
+        foreach ($all_visible_tickets as $ticket) {
+            switch ((int) ($ticket['status_id'] ?? 0)) {
+                case 1:
+                    $data['open_count']++;
+                    break;
+                case 2:
+                    $data['in_process_count']++;
+                    break;
+                case 3:
+                    $data['resolved_count']++;
+                    break;
+                case 4:
+                    $data['closed_count']++;
+                    break;
+            }
+        }
+
+        $visible_tickets = $dashboard_ticket_status > 0
+            ? array_values(array_filter($all_visible_tickets, function ($ticket) use ($dashboard_ticket_status) {
+                return (int) ($ticket['status_id'] ?? 0) === $dashboard_ticket_status;
+            }))
+            : $all_visible_tickets;
+
+        $data['recent_tickets'] = array_slice(array_map(function ($ticket) use ($department_id) {
+            $ticket['can_accept'] = ((int) $department_id === 2 && (int) ($ticket['status_id'] ?? 0) === 1 && empty($ticket['assigned_engineer_id'])) ? 1 : 0;
+            return $ticket;
+        }, $visible_tickets), 0, 10);
+        $data['dashboard_ticket_status'] = $dashboard_ticket_status;
         $data['menus'] = $this->menu_data;
 
-        $schedule_scope_ids = array_values(array_unique(array_merge([$user_id], $this->User_model->getAllSubordinates($user_id))));
-        $selected_schedule_user_id = (int) $this->input->get('schedule_user_id');
+        $schedule_scope_ids = $this->User_model->getVisibleUserIdsForScope($user_id, $department_id, $role_id);
+        $selected_schedule_user_key = trim((string) $this->input->get('schedule_user_id'));
+        $selected_schedule_user_id = strtolower($selected_schedule_user_key) === 'all' ? 0 : (int) $selected_schedule_user_key;
 
-        if ($selected_schedule_user_id <= 0 || !in_array($selected_schedule_user_id, $schedule_scope_ids, true)) {
-            $selected_schedule_user_id = $user_id;
+        if ($selected_schedule_user_id !== 0 && !in_array($selected_schedule_user_id, $schedule_scope_ids, true)) {
+            $selected_schedule_user_id = 0;
         }
 
         $data['schedule_scope_users'] = $this->Schedule_model->getScopeUsers($schedule_scope_ids);
         $data['selected_schedule_user_id'] = $selected_schedule_user_id;
-        $data['today_tasks'] = $this->Schedule_model->getTodayTasksForScope($user_id, $schedule_scope_ids, $selected_schedule_user_id, date('Y-m-d'));
+        $data['today_tasks'] = $this->Schedule_model->getTodayTasksForScope($user_id, $schedule_scope_ids, $selected_schedule_user_id, date('Y-m-d'), (int) $role_id === 2 ? null : $department_id);
         $data['page_css'] = ['assets/dist/css/pages/schedule.css'];
-        $data['page_js'] = ['assets/dist/js/pages/schedule.js'];
+        $data['page_js'] = ['assets/dist/js/pages/schedule.js', 'assets/dist/js/pages/dashboard.js'];
 
         $this->load->vars([
             'schedule_scope_users' => $data['schedule_scope_users'],
             'selected_schedule_user_id' => $selected_schedule_user_id,
             'today_tasks' => $data['today_tasks'],
+            'dashboard_ticket_status' => $dashboard_ticket_status,
         ]);
 
         $this->load->view('Pages/Dashboard/index', $data);

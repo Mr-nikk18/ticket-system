@@ -105,6 +105,8 @@ class Ticket_model extends CI_Model
             tp.priority_name,
             u.name AS handled_by_name,
             owner.name AS owner_name,
+            owner.department_id AS owner_department_id,
+            dept.department_name AS owner_department_name,
             (
                 SELECT COUNT(*)
                 FROM task_messages tm
@@ -129,6 +131,7 @@ class Ticket_model extends CI_Model
         $this->db->join('ticket_priorities tp', 'tp.priority_id = t.priority_id', 'left');
         $this->db->join('users u', 'u.user_id = t.assigned_engineer_id', 'left');
         $this->db->join('users owner', 'owner.user_id = t.user_id', 'left');
+        $this->db->join('departments dept', 'dept.department_id = owner.department_id', 'left');
         $this->db->where('t.deleted_at IS NULL', null, false);
 
         if ($department_id === 2) {
@@ -158,7 +161,17 @@ class Ticket_model extends CI_Model
                 ->group_end();
             }
         } else {
-            $this->db->where('t.user_id', $user_id);
+            if ($role_id === 2) {
+                if ($filter === 'raised') {
+                    $this->db->where('t.user_id', $user_id);
+                } elseif ($filter === 'assigned' || $filter === '') {
+                    $this->db->where('owner.department_id', $department_id);
+                }
+            } elseif ($filter === 'raised') {
+                $this->db->where('t.user_id', $user_id);
+            } else {
+                $this->db->where('owner.department_id', $department_id);
+            }
         }
 
         $this->db->group_start()
@@ -212,7 +225,8 @@ class Ticket_model extends CI_Model
                 ts.status_name,
                 ts.status_slug,
                 u.name AS handled_by_name,
-                owner.name AS owner_name
+                owner.name AS owner_name,
+                owner.department_id AS owner_department_id
             ')
             ->from('tickets t')
             ->join('ticket_statuses ts', 'ts.status_id = t.status_id', 'left')

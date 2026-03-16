@@ -1,0 +1,235 @@
+.trs-section-workspace {
+    margin-bottom: 1.5rem;
+}
+
+.trs-form-page .content-header .container-fluid,
+.trs-form-page .content .container-fluid {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 1180px;
+}
+
+.trs-form-shell {
+    margin: 0 auto;
+    max-width: 980px;
+    width: 100%;
+}
+
+.trs-form-shell--wide {
+    max-width: 1120px;
+}
+
+.trs-form-card {
+    background: rgba(255, 252, 246, 0.96);
+    border: 1px solid rgba(77, 57, 31, 0.12);
+    border-radius: 24px;
+    box-shadow: 0 18px 42px rgba(38, 25, 8, 0.08);
+    overflow: hidden;
+}
+
+.trs-form-card > .card-header {
+    align-items: center;
+    background: linear-gradient(135deg, rgba(255, 248, 236, 0.98), rgba(248, 238, 222, 0.98));
+    border-bottom: 1px solid rgba(77, 57, 31, 0.08);
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+    padding: 1rem 1.35rem;
+}
+
+.trs-form-card .card-title {
+    color: #1f2937;
+    font-weight: 700;
+    margin: 0;
+}
+
+.trs-form-card > .card-body,
+.trs-form-card > form > .card-body,
+.trs-form-card form > .card-body {
+    padding: 1.35rem;
+}
+
+.trs-form-card > .card-footer,
+.trs-form-card > form > .card-footer,
+.trs-form-card form > .card-footer {
+    background: rgba(255, 252, 246, 0.94);
+    border-top: 1px solid rgba(77, 57, 31, 0.08);
+    padding: 1rem 1.35rem 1.2rem;
+}
+
+.trs-form-page .form-control,
+.trs-form-page .custom-select {
+    border-radius: 14px;
+    min-height: 46px;
+}
+
+.trs-form-page textarea.form-control {
+    min-height: 140px;
+    resize: vertical;
+}
+
+.trs-section-shell {
+    background: linear-gradient(135deg, rgba(14, 24, 41, 0.96), rgba(25, 54, 89, 0.92));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    box-shadow: 0 22px 55px rgba(10, 24, 48, 0.18);
+    color: #edf5ff;
+    overflow: hidden;
+}
+
+.trs-section-shell__header {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    padding: 1.4rem 1.5rem 0.8rem;
+}
+
+.trs-section-shell__eyebrow {
+    color: rgba(228, 240, 255, 0.72);
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+}
+
+.trs-section-shell__title {
+    color: #ffffff;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.trs-section-shell__description {
+    color: rgba(228, 240, 255, 0.78);
+    margin: 0.45rem 0 0;
+    max-width: 760px;
+}
+
+.trs-section-shell__badge {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.5rem 0.9rem;
+    white-space: nowrap;
+}
+
+.trs-section-shell__nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    padding: 0 1.5rem 1.3rem;
+}
+
+.trs-section-shell__tab {
+    align-items: flex-start;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid transparent;
+    border-radius: 16px;
+    color: rgba(237, 245, 255, 0.78);
+    cursor: pointer;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 150px;
+    padding: 0.8rem 0.95rem;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+
+.trs-section-shell__tab:hover,
+.trs-section-shell__tab:focus {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    outline: none;
+}
+
+.trs-section-shell__tab.is-active {
+    background: linear-gradient(135deg, #f7c35f, #f59e0b);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 12px 26px rgba(245, 158, 11, 0.22);
+    color: #1f2937;
+}
+
+.trs-section-shell__tab-label {
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.trs-section-shell__tab-hint {
+    font-size: 0.78rem;
+    opacity: 0.82;
+}
+
+.trs-section-panels {
+    margin-top: 1.15rem;
+}
+
+.trs-section-panel {
+    display: none;
+}
+
+.trs-section-panel.is-active {
+    display: block;
+}
+
+.trs-section-panel__body {
+    animation: trsSectionFade 0.22s ease;
+}
+
+@keyframes trsSectionFade {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 991.98px) {
+    .trs-form-card > .card-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .trs-section-shell__header {
+        flex-direction: column;
+    }
+
+    .trs-section-shell__nav {
+        padding-top: 0.2rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .trs-form-card > .card-header,
+    .trs-form-card > .card-body,
+    .trs-form-card > form > .card-body,
+    .trs-form-card form > .card-body,
+    .trs-form-card > .card-footer,
+    .trs-form-card > form > .card-footer,
+    .trs-form-card form > .card-footer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .trs-section-shell__header,
+    .trs-section-shell__nav {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .trs-section-shell__tab {
+        min-width: 100%;
+    }
+}

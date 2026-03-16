@@ -27,8 +27,13 @@ $this->load->view('Layout/Header');
           <?php if ((int) $this->session->userdata('department_id') === 2 && (int) $this->session->userdata('role_id') === 2) { ?>
             <option value="assigned">Assigned + Open Queue</option>
             <option value="raised">Self Raised</option>
+            <option value="all">All Tickets</option>
+          <?php } elseif ((int) $this->session->userdata('role_id') === 2) { ?>
+            <option value="assigned">Department Board</option>
+            <option value="raised">Self Raised</option>
+            <option value="all">All Departments</option>
           <?php } else { ?>
-            <option value="assigned"><?= ((int) $this->session->userdata('department_id') === 2 && (int) $this->session->userdata('role_id') !== 2) ? 'Assigned + Open Queue' : 'All Ticket' ?></option>
+            <option value="assigned"><?= ((int) $this->session->userdata('department_id') === 2 && (int) $this->session->userdata('role_id') !== 2) ? 'Assigned + Open Queue' : 'Department Board' ?></option>
             <option value="raised">Self Raised</option>
           <?php } ?>
         </select>

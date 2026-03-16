@@ -6,6 +6,20 @@
     var hierarchyLoaded = false;
     var selectedHierarchyUserId = null;
     var selectedHierarchyUserName = '';
+    var sectionMeta = {
+        queue: {
+            title: 'Review Queue',
+            message: 'Developer card click karo aur full-width detail workspace AJAX se open hoga.'
+        },
+        detail: {
+            title: 'Performance Detail',
+            message: 'Selected developer ka full performance breakdown, charts aur ticket tables yahan load honge.'
+        },
+        hierarchy: {
+            title: 'Hierarchy Manager',
+            message: 'Reporting structure, node inspection aur reassignment controls yahan manage honge.'
+        }
+    };
 
     function escapeHtml(value) {
         return $('<div>').text(value == null ? '' : String(value)).html();
@@ -74,6 +88,8 @@
         $('#perfOverviewTotalReports').text(parseInt(overview.total_reports || 0, 10));
         $('#perfOverviewAssignedByYou').text(parseInt(overview.reviewer_assigned || 0, 10));
         $('#perfOverviewAccepted').text(parseInt(overview.accepted_total || 0, 10));
+        $('#perfOverviewDelegation').text(parseInt(overview.delegation_absence || 0, 10));
+        $('#perfOverviewLeaveMeta').text(parseInt(overview.leave_days_total || 0, 10) + ' leave days / ' + parseInt(overview.present_days_total || 0, 10) + ' present days');
         if (shouldRenderChart) {
             renderOverviewChart(overview || {});
         }
@@ -100,6 +116,10 @@
             var pending = parseInt(dev.pending_tickets || 0, 10);
             var reviewerAssignedTickets = parseInt(dev.reviewer_assigned_tickets || 0, 10);
             var directReports = parseInt(dev.direct_reports || 0, 10);
+            var leaveDays = parseInt(dev.leave_days || 0, 10);
+            var presentDays = parseInt(dev.present_days || 0, 10);
+            var avgResolutionHours = parseFloat(dev.avg_resolution_hours || 0);
+            var investedHours = parseFloat(dev.invest_hours || 0);
             var score = total > 0 ? Math.round((resolved / total) * 100) : 0;
             var assignedPct = total > 0 ? Math.round((assigned / total) * 100) : 0;
             var acceptedPct = total > 0 ? Math.round((accepted / total) * 100) : 0;
@@ -109,7 +129,7 @@
 
             return '' +
                 '<div class="col-xl-6 developer-performance-item" data-name="' + escapeHtml((dev.name || '').toLowerCase()) + '" data-company="' + escapeHtml(((dev.company_name || 'no company')).toLowerCase()) + '" data-department="' + escapeHtml(((dev.department_name || 'no department')).toLowerCase()) + '">' +
-                '<div class="perf-dev-card" data-developer-id="' + parseInt(dev.user_id || 0, 10) + '">' +
+                '<div class="perf-dev-card" data-developer-id="' + parseInt(dev.user_id || 0, 10) + '" data-developer-name="' + escapeHtml(dev.name || 'Unknown') + '">' +
                 '<div class="perf-dev-glow"></div>' +
                 '<div class="perf-dev-header">' +
                 '<div class="perf-dev-avatar">' + escapeHtml(initials) + '</div>' +
@@ -119,6 +139,10 @@
                 '<div class="perf-chip-row">' +
                 '<span class="perf-chip soft">You assigned ' + reviewerAssignedTickets + '</span>' +
                 '<span class="perf-chip dark">Accepted ' + accepted + '</span>' +
+                '<span class="perf-chip slate">Leave ' + leaveDays + 'd</span>' +
+                '<span class="perf-chip green">Present ' + presentDays + 'd</span>' +
+                '<span class="perf-chip slate">Avg Res ' + Math.round(avgResolutionHours) + 'h</span>' +
+                '<span class="perf-chip green">Invested ' + Math.round(investedHours) + 'h</span>' +
                 '<span class="perf-chip amber">Reports ' + directReports + '</span>' +
                 '</div>' +
                 '<div class="perf-metric-list">' +
@@ -135,6 +159,33 @@
                 '</div>' +
                 '</div>';
         }).join('');
+    }
+
+    function updateSideContext(target, overrides) {
+        var base = sectionMeta[target] || sectionMeta.queue;
+        var title = (overrides && overrides.title) ? overrides.title : base.title;
+        var message = (overrides && overrides.message) ? overrides.message : base.message;
+
+        $('#perfSideContextTitle').text(title);
+        $('#perfSideContextMeta').text(message);
+    }
+
+    function syncWorkspaceHash(target) {
+        if (!target || !window.history || typeof window.history.replaceState !== 'function') {
+            return;
+        }
+
+        window.history.replaceState(null, document.title, window.location.pathname + window.location.search + '#perf-' + target);
+    }
+
+    function getWorkspaceFromHash() {
+        var hash = (window.location.hash || '').replace('#', '');
+        if (hash.indexOf('perf-') !== 0) {
+            return 'queue';
+        }
+
+        hash = hash.replace('perf-', '');
+        return sectionMeta[hash] ? hash : 'queue';
     }
 
     function refreshDeveloperGrid(callback) {
@@ -175,6 +226,13 @@
             '<div class="perf-detail-stat"><div class="label">Total Tickets</div><div class="value">' + parseInt(summary.total_tickets || 0, 10) + '</div></div>' +
             '<div class="perf-detail-stat"><div class="label">Assigned By You</div><div class="value">' + parseInt(summary.reviewer_assigned_tickets || 0, 10) + '</div></div>' +
             '<div class="perf-detail-stat"><div class="label">Accepted By Self</div><div class="value">' + parseInt(summary.accepted_tickets || 0, 10) + '</div></div>' +
+            '<div class="perf-detail-stat"><div class="label">Delegations In</div><div class="value">' + parseInt(summary.incoming_delegations || 0, 10) + '</div></div>' +
+            '<div class="perf-detail-stat"><div class="label">Delegations Out</div><div class="value">' + parseInt(summary.outgoing_delegations || 0, 10) + '</div></div>' +
+            '<div class="perf-detail-stat"><div class="label">Active Delegations</div><div class="value">' + parseInt(summary.active_delegations || 0, 10) + '</div></div>' +
+            '<div class="perf-detail-stat"><div class="label">Leave Days</div><div class="value">' + parseInt(summary.leave_days || 0, 10) + '</div></div>' +
+            '<div class="perf-detail-stat"><div class="label">Present Days</div><div class="value">' + parseInt(summary.present_days || 0, 10) + '</div></div>' +
+            '<div class="perf-detail-stat"><div class="label">Avg Resol (hrs)</div><div class="value">' + parseFloat(summary.avg_resolution_hours || 0).toFixed(1) + '</div></div>' +
+            '<div class="perf-detail-stat"><div class="label">Invested Hours</div><div class="value">' + parseFloat(summary.invest_hours || 0).toFixed(1) + '</div></div>' +
             '<div class="perf-detail-stat"><div class="label">Direct Reports</div><div class="value">' + parseInt(summary.direct_reports || 0, 10) + '</div></div>' +
             '</div>';
 
@@ -197,9 +255,10 @@
                 '<td>' + escapeHtml(ticket.owner_name || 'N/A') + '</td>' +
                 '<td><span class="perf-status-chip">' + escapeHtml(ticket.status_name || 'N/A') + '</span></td>' +
                 '<td>' + (parseInt(ticket.can_resolve || 0, 10) === 1 ? 'Ready' : 'Blocked by task') + '</td>' +
+                '<td>' + (parseInt(ticket.days_open || 0, 10) >= 0 ? parseInt(ticket.days_open || 0, 10) + ' days' : '0 days') + '</td>' +
                 '<td>' + escapeHtml(ticket.created_at || '') + '</td>' +
                 '</tr>';
-        }), 6);
+        }), 7);
 
         var acceptedRows = renderRows(acceptedTickets.map(function (ticket) {
             return '<tr>' +
@@ -241,8 +300,13 @@
             '<div class="col-lg-6 mb-3"><div class="perf-form-title">Hierarchy Under Member</div><div class="perf-subordinate-list">' + subordinateHtml + '</div></div>' +
             '</div>' +
             '</div>' +
-            '<div class="perf-section-block"><div class="perf-form-title">Current Ticket State</div><div class="perf-table-wrap"><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Ticket</th><th>Title</th><th>Owner</th><th>Status</th><th>Readiness</th><th>Created</th></tr></thead><tbody>' + currentRows + '</tbody></table></div></div></div>' +
+            '<div class="perf-section-block"><div class="perf-form-title">Current Ticket State</div><div class="perf-table-wrap"><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Ticket</th><th>Title</th><th>Owner</th><th>Status</th><th>Readiness</th><th>Days Open</th><th>Created</th></tr></thead><tbody>' + currentRows + '</tbody></table></div></div></div>' +
             '<div class="perf-section-block"><div class="perf-form-title">Accepted Tickets</div><div class="perf-table-wrap"><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Ticket</th><th>Title</th><th>Owner</th><th>Status</th><th>Accepted At</th></tr></thead><tbody>' + acceptedRows + '</tbody></table></div></div></div>' +
+            '<div class="perf-section-block"><div class="perf-form-title">Department Status Backlog</div><div class="perf-table-wrap"><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Department</th><th>Open</th><th>In Progress</th><th>Resolved</th><th>Closed</th></tr></thead><tbody>' +
+            (data.department_status && data.department_status.length ? data.department_status.map(function (row) {
+                return '<tr><td>' + escapeHtml(row.department_name || 'Unknown') + '</td><td>' + parseInt(row.open_tickets || 0, 10) + '</td><td>' + parseInt(row.in_progress_tickets || 0, 10) + '</td><td>' + parseInt(row.resolved_tickets || 0, 10) + '</td><td>' + parseInt(row.closed_tickets || 0, 10) + '</td></tr>';
+            }).join('') : '<tr><td colspan="5" class="text-center text-muted">No department backlog data</td></tr>') +
+            '</tbody></table></div></div></div>' +
             '<div class="perf-section-block"><div class="perf-form-title">Assignment History Snapshot</div><div class="perf-table-wrap"><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Ticket</th><th>Title</th><th>Assigned By</th><th>Action</th><th>Current Status</th><th>Assigned At</th></tr></thead><tbody>' + assignedRows + '</tbody></table></div></div></div>';
     }
 
@@ -326,6 +390,10 @@
             }
 
             $('#developerPerformanceDetailBody').html(renderDeveloperDetail(response));
+            updateSideContext('detail', {
+                title: (((response.data || {}).developer || {}).name) || 'Performance Detail',
+                message: 'Selected developer ka accepted work, live ticket state, leave metrics aur assignment history yahan visible hai.'
+            });
             renderDetailCharts(response.data || {});
         }).fail(function () {
             $('#developerPerformanceDetailBody').html('<div class="perf-empty-state compact"><i class="fas fa-exclamation-triangle"></i><h4>Request failed</h4><p>AJAX response nahi mila.</p></div>');
@@ -379,7 +447,7 @@
         return html;
     }
 
-    function populateHierarchyForm(tree, eligibleUsers) {
+    function populateHierarchyFormLegacy(tree, eligibleUsers) {
         var hierarchyMembers = flattenTree(tree, [], 0);
 
         var managerOptions = hierarchyMembers.map(function (item) {
@@ -402,6 +470,39 @@
         $('#hierarchyTargetUser').html('<option value="">Select user</option>' + memberOptions + eligibleOptions);
     }
 
+    function prepareHierarchyAddLegacy(managerId, managerName) {
+        selectedHierarchyUserId = parseInt(managerId || 0, 10) || null;
+        selectedHierarchyUserName = managerName || 'selected member';
+        $('#hierarchyManagerUser').val(managerId);
+        $('#developerHierarchyFormTitle').text('Add or Move Under ' + selectedHierarchyUserName);
+        $('#developerHierarchyFormHelper').text('Direct hierarchy update: user choose karo, manager auto-selected hai. Sirf team member select karke save karo.');
+        $('#developerHierarchyMessage').removeClass('success error').text('');
+        $('#hierarchyTargetUser').focus();
+    }
+
+    function populateHierarchyForm(tree, eligibleUsers) {
+        var hierarchyMembers = flattenTree(tree, [], 0);
+
+        var managerOptions = hierarchyMembers.map(function (item) {
+            var indent = new Array((item.depth || 0) + 1).join('> ');
+            return '<option value="' + item.user_id + '">' + escapeHtml(indent + item.name) + '</option>';
+        }).join('');
+
+        var memberOptions = hierarchyMembers
+            .filter(function (item) { return item.depth > 0; })
+            .map(function (item) {
+                var indent = new Array((item.depth || 0) + 1).join('> ');
+                return '<option value="' + item.user_id + '">' + escapeHtml(indent + item.name) + '</option>';
+            }).join('');
+
+        var eligibleOptions = eligibleUsers.map(function (item) {
+            return '<option value="' + parseInt(item.user_id, 10) + '">' + escapeHtml(item.name + ' (' + (item.role_name || 'User') + ')') + '</option>';
+        }).join('');
+
+        $('#hierarchyManagerUser').html('<option value="">Select manager</option>' + managerOptions);
+        $('#hierarchyTargetUser').html('<option value="">Select user</option>' + memberOptions + eligibleOptions);
+    }
+
     function prepareHierarchyAdd(managerId, managerName) {
         selectedHierarchyUserId = parseInt(managerId || 0, 10) || null;
         selectedHierarchyUserName = managerName || 'selected member';
@@ -409,6 +510,10 @@
         $('#developerHierarchyFormTitle').text('Add or Move Under ' + selectedHierarchyUserName);
         $('#developerHierarchyFormHelper').text('Direct hierarchy update: user choose karo, manager auto-selected hai. Sirf team member select karke save karo.');
         $('#developerHierarchyMessage').removeClass('success error').text('');
+        updateSideContext('hierarchy', {
+            title: selectedHierarchyUserName,
+            message: 'Selected node ke niche hierarchy attach ya move karne ke liye form ready hai.'
+        });
         $('#hierarchyTargetUser').focus();
     }
 
@@ -508,19 +613,29 @@
         });
     }
 
-    function switchWorkspace(target) {
-        $('.perf-tab-btn').removeClass('is-active');
-        $('.perf-tab-btn[data-target="' + target + '"]').addClass('is-active');
+    function switchWorkspace(target, options) {
+        var workspaceTarget = sectionMeta[target] ? target : 'queue';
+        options = options || {};
 
-        if (target === 'hierarchy') {
-            $('#perfDetailPane').hide();
-            $('#perfHierarchyPane').show();
+        $('.perf-side-nav-btn').removeClass('is-active');
+        $('.perf-side-nav-btn[data-target="' + workspaceTarget + '"]').addClass('is-active');
+
+        $('.perf-main-section').hide().removeClass('is-active');
+
+        if (workspaceTarget === 'hierarchy') {
+            $('#perfHierarchySection').show().addClass('is-active');
             loadHierarchyData(false);
-            return;
+        } else if (workspaceTarget === 'detail') {
+            $('#perfDetailSection').show().addClass('is-active');
+        } else {
+            $('#perfQueueSection').show().addClass('is-active');
         }
 
-        $('#perfHierarchyPane').hide();
-        $('#perfDetailPane').show();
+        updateSideContext(workspaceTarget, options.context || null);
+
+        if (!options.skipHistory) {
+            syncWorkspaceHash(workspaceTarget);
+        }
     }
 
     function submitHierarchyUpdate() {
@@ -555,7 +670,8 @@
     }
 
     $(function () {
-        updateOverviewCounters(config.initialOverview || {}, false);
+        updateOverviewCounters(config.initialOverview || {}, true);
+        switchWorkspace(getWorkspaceFromHash(), { skipHistory: true });
 
         $('#developerPerformanceSearch, #developerCompanyFilter, #developerPerformanceDepartmentFilter').on('input change', applyDeveloperFilters);
 
@@ -565,16 +681,22 @@
 
         $(document).on('click', '.perf-dev-card', function () {
             var developerId = $(this).data('developer-id');
+            var developerName = ($(this).data('developer-name') || '').toString();
             if (!developerId) {
                 return;
             }
 
-            updateOverviewCounters(config.initialOverview || {}, true);
-            switchWorkspace('detail');
+            $('#perfDetailHeading').text(developerName || 'Developer Detail');
+            switchWorkspace('detail', {
+                context: {
+                    title: developerName || 'Performance Detail',
+                    message: 'Selected developer ka performance summary, charts aur live tables AJAX se load ho rahe hain.'
+                }
+            });
             loadDeveloperDetail(developerId);
         });
 
-        $(document).on('click', '.perf-tab-btn', function () {
+        $(document).on('click', '.perf-side-nav-btn', function () {
             switchWorkspace($(this).data('target'));
         });
 
@@ -598,6 +720,22 @@
             hierarchyLoaded = false;
             loadHierarchyData(true);
         });
+
+        $('#btnDeveloperReportPdf').on('click', function () {
+            var fromDate = $('#reportFromDate').val() || '';
+            var toDate = $('#reportToDate').val() || '';
+            var year = config.year || new Date().getFullYear();
+            var url = config.exportUrl + '?year=' + encodeURIComponent(year) + '&from_date=' + encodeURIComponent(fromDate) + '&to_date=' + encodeURIComponent(toDate);
+            window.open(url, '_blank');
+        });
+
+        setInterval(function () {
+            if (document.hidden || !$('#developerPerformanceGrid').length) {
+                return;
+            }
+
+            refreshDeveloperGrid();
+        }, 120000);
 
     });
 })(window, jQuery);

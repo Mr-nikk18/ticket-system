@@ -7,7 +7,7 @@
     <div class="icon">
       <i class="ion ion-pie-graph"></i>
     </div>
-    <a href="<?= base_url('TRS/list/4') ?>" class="small-box-footer">
+    <a href="<?= base_url('Dashboard?dashboard_ticket_status=4') ?>" class="small-box-footer js-dashboard-status-link" data-status="4" data-target-section="activity">
       More info <i class="fas fa-arrow-circle-right"></i>
     </a>
   </div>

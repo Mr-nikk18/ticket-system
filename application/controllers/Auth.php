@@ -3,6 +3,35 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Auth extends CI_Controller
 {
+    private function respondJson(array $payload)
+    {
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($payload));
+    }
+
+    private function loadUserModel()
+    {
+        $this->load->model('User_model');
+    }
+
+    private function sendSystemEmail($to, $subject, $message)
+    {
+        $this->load->library('email');
+        $this->email->clear(true);
+        $this->email->from('patelniket972@gmail.com', 'TRS');
+        $this->email->to($to);
+        $this->email->subject($subject);
+        $this->email->message($message);
+
+        return (bool) $this->email->send();
+    }
+
+    private function redirectWithFlash($key, $message, $route)
+    {
+        $this->session->set_flashdata($key, $message);
+        redirect($route);
+    }
 
     public function __construct()
     {
@@ -28,14 +57,12 @@ class Auth extends CI_Controller
        ======================= */
     public function checkUsernameLogin()
     {
-        $this->output->set_content_type('application/json');
-
         $username = $this->input->post('username');
-        $this->load->model('User_model');
+        $this->loadUserModel();
 
         $user = $this->User_model->getUserByUsername($username);
 
-        echo json_encode([
+        $this->respondJson([
             'exists' => $user ? true : false
         ]);
     }
@@ -45,19 +72,13 @@ class Auth extends CI_Controller
        ======================= */
     public function checkPassword()
     {
-        $this->output->set_content_type('application/json');
-
         $username = $this->input->post('username');
         $password = $this->input->post('password');
 
-        $this->load->model('User_model');
+        $this->loadUserModel();
         $user = $this->User_model->getUserByUsername($username);
 
-        if ($user && password_verify($password, $user->password)) {
-            echo json_encode(['valid' => true]);
-        } else {
-            echo json_encode(['valid' => false]);
-        }
+        $this->respondJson(['valid' => (bool) ($user && password_verify($password, $user->password))]);
     }
 
     /* =======================
@@ -68,26 +89,23 @@ class Auth extends CI_Controller
         $username = $this->input->post('user_name');
         $password = $this->input->post('password');
         
-        $this->load->model('User_model');
+        $this->loadUserModel();
         $user = $this->User_model->get_user_by_username($username);
 
 
         if (!$user) {
-            $this->session->set_flashdata('failed', 'Account not Found!!');
-            redirect('verify');
+            $this->redirectWithFlash('failed', 'Account not Found!!', 'verify');
         }
 
         if ($user->is_registered != 1 || $user->status != 'Active') {
-            $this->session->set_flashdata('failed', 'Account not activated');
-            redirect('verify');
+            $this->redirectWithFlash('failed', 'Account not activated', 'verify');
         }
 
         if (!password_verify($password, $user->password)) {
-            $this->session->set_flashdata('failed', 'Invalid password');
-            redirect('verify');
+            $this->redirectWithFlash('failed', 'Invalid password', 'verify');
         }
 
-        $session = $this->session->set_userdata([
+        $this->session->set_userdata([
             'is_login'      => true,
             'user_id'       => $user->user_id,
             'username'      => $user->user_name,
@@ -135,7 +153,7 @@ class Auth extends CI_Controller
     public function setdataregistration()
     {
         $this->load->library('form_validation');
-        $this->load->model('User_model');
+        $this->loadUserModel();
 
         $this->form_validation->set_rules('user_name', 'Username', 'required|trim');
         $this->form_validation->set_rules('email', 'Email', 'required|trim|valid_email');
@@ -147,8 +165,7 @@ class Auth extends CI_Controller
         );
 
         if ($this->form_validation->run() == FALSE) {
-            $this->session->set_flashdata('failed', validation_errors());
-            redirect('register');
+            $this->redirectWithFlash('failed', validation_errors(), 'register');
             return;
         }
 
@@ -162,8 +179,7 @@ class Auth extends CI_Controller
             ->row();
 
         if (!$user) {
-            $this->session->set_flashdata('failed', 'Unauthorized or already registered');
-            redirect('register');
+            $this->redirectWithFlash('failed', 'Unauthorized or already registered', 'register');
             return;
         }
 
@@ -178,8 +194,7 @@ class Auth extends CI_Controller
         $this->db->where('user_id', $user->user_id);
         $this->db->update('users', $updateData);
 
-        $this->session->set_flashdata('success', 'Account activated successfully');
-        redirect('verify');
+        $this->redirectWithFlash('success', 'Account activated successfully', 'verify');
     }
 
     public function logout()
@@ -199,7 +214,7 @@ class Auth extends CI_Controller
     {
 
         $this->load->library('form_validation');
-        $this->load->model('User_model');
+        $this->loadUserModel();
 
 
 
@@ -240,44 +255,33 @@ class Auth extends CI_Controller
         $reset_link = base_url('reset-password/' . $token);
 
         // Send Email
-        $this->load->library('email');
-
-        $this->email->from('patelniket972@gmail.com', 'TRS');
-        $this->email->to($email);
-        $this->email->subject('Reset Password');
-
-
-        $this->email->message(
+        $message =
             "Hello,\n\nClick the link to reset your password:\n" . $reset_link . "\n\nThis is valid for 15 minutes."
-        );
+        ;
 
-        if ($this->email->send()) {
-            $this->session->set_flashdata('success', 'Reset link sent successfully');
-
-            redirect('verify');
+        if ($this->sendSystemEmail($email, 'Reset Password', $message)) {
+            $this->redirectWithFlash('success', 'Reset link sent successfully', 'verify');
         } else {
-            $this->session->set_flashdata('failed', 'Failed to send email');
-
-            redirect('verify');
+            $this->redirectWithFlash('failed', 'Failed to send email', 'verify');
         }
     }
 
     public function check_email_status_ajax()
     {
         $email = $this->input->post('email');
-        $this->load->model('User_model');
+        $this->loadUserModel();
         $user = $this->User_model->getdata($email);
 
         if (!$user) {
-            echo json_encode(['status' => 'NotFound']);
+            $this->respondJson(['status' => 'NotFound']);
             return;
         }
         if ($user['status'] == 'Inactive') {
-            echo json_encode(['status' => 'Inactive']);
+            $this->respondJson(['status' => 'Inactive']);
             return;
         }
 
-        echo json_encode(['status' => 'Active']);
+        $this->respondJson(['status' => 'Active']);
     }
 
 
@@ -305,17 +309,15 @@ class Auth extends CI_Controller
             exit;
         }
 
-        $this->load->model('User_model');
+        $this->loadUserModel();
 
         $updated = $this->User_model->update_password_by_token($token, $password);
 
         if ($updated) {
-            $this->session->set_flashdata('success', 'Password updated successfully');
-            redirect('verify');   // login / verify page
+            $this->redirectWithFlash('success', 'Password updated successfully', 'verify');
             exit;
         } else {
-            $this->session->set_flashdata('failed', 'Link expired or invalid');
-            redirect('forget_password');
+            $this->redirectWithFlash('failed', 'Link expired or invalid', 'forget_password');
             exit;
         }
     }
@@ -327,7 +329,7 @@ class Auth extends CI_Controller
             redirect('verify');
         }
 
-        $this->load->model('User_model');
+        $this->loadUserModel();
 
         // token valid hai ya nahi check
         $user = $this->User_model->get_user_by_token($token);

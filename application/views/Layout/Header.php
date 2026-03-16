@@ -39,6 +39,7 @@ $dark_mode     = $theme['dark_mode'] ?? 0;
   <!-- summernote -->
   <link rel="stylesheet" href="<?= base_url() ?>assets/plugins/summernote/summernote-bs4.min.css">
   <link rel="stylesheet" href="<?= base_url() ?>assets/dist/css/common/layout.css">
+  <link rel="stylesheet" href="<?= base_url() ?>assets/dist/css/common/section-shell.css">
   <?php if (!empty($page_css) && is_array($page_css)) { ?>
     <?php foreach ($page_css as $css_file) { ?>
       <link rel="stylesheet" href="<?= base_url($css_file) ?>">

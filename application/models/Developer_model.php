@@ -3,16 +3,49 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Developer_model extends CI_Model
 {
+    private function getYearWindow($year)
+    {
+        $year = (int) ($year ?: date('Y'));
+        $currentYear = (int) date('Y');
+        $start = sprintf('%04d-01-01', $year);
+        $end = sprintf('%04d-12-31', $year);
+
+        if ($year > $currentYear) {
+            return [
+                'start' => $start,
+                'end' => $end,
+                'elapsed_days' => 0,
+            ];
+        }
+
+        $windowEnd = $year < $currentYear ? $end : date('Y-m-d');
+        $startDate = new DateTime($start);
+        $endDate = new DateTime($windowEnd);
+        $elapsedDays = $endDate >= $startDate
+            ? ((int) $startDate->diff($endDate)->format('%a') + 1)
+            : 0;
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'elapsed_days' => $elapsedDays,
+        ];
+    }
+
     public function getDeveloperPerformance($year = null, array $scopeUserIds = [], $reviewerId = 0)
     {
         $year = $year ?: date('Y');
         $reviewerId = (int) $reviewerId;
+        $yearWindow = $this->getYearWindow($year);
+        $yearStart = $yearWindow['start'];
+        $yearEnd = $yearWindow['end'];
+        $elapsedDays = (int) $yearWindow['elapsed_days'];
 
         if (empty($scopeUserIds)) {
             return [];
         }
 
-        return $this->db
+        $rows = $this->db
             ->select('
                 u.user_id,
                 u.name,
@@ -56,6 +89,35 @@ class Developer_model extends CI_Model
                       AND YEAR(tah.created_at) = ' . (int) $year . '
                 ) AS accepted_tickets,
                 (
+                    SELECT COALESCE(ROUND(AVG(TIMESTAMPDIFF(HOUR, t.created_at, t.closed_at)),1),0)
+                    FROM tickets t
+                    WHERE t.assigned_engineer_id = u.user_id
+                      AND t.closed_at IS NOT NULL
+                      AND YEAR(t.created_at) = ' . (int) $year . '
+                ) AS avg_resolution_hours,
+                (
+                    SELECT COUNT(*)
+                    FROM task_delegations td
+                    WHERE td.delegated_user_id = u.user_id
+                      AND td.approval_status = "approved"
+                      AND YEAR(td.start_date) = ' . (int) $year . '
+                ) AS incoming_delegations,
+                (
+                    SELECT COUNT(*)
+                    FROM task_delegations td
+                    WHERE td.original_user_id = u.user_id
+                      AND td.approval_status = "approved"
+                      AND YEAR(td.start_date) = ' . (int) $year . '
+                ) AS outgoing_delegations,
+                (
+                    SELECT COUNT(*)
+                    FROM task_delegations td
+                    WHERE (td.original_user_id = u.user_id OR td.delegated_user_id = u.user_id)
+                      AND td.approval_status = "approved"
+                      AND td.start_date <= CURDATE()
+                      AND td.end_date >= CURDATE()
+                ) AS active_delegations,
+                (
                     SELECT COUNT(*)
                     FROM ticket_assignment_history tah
                     WHERE tah.assigned_to = u.user_id
@@ -64,11 +126,26 @@ class Developer_model extends CI_Model
                       AND YEAR(tah.created_at) = ' . (int) $year . '
                 ) AS reviewer_assigned_tickets,
                 (
+                    SELECT COALESCE(ROUND(SUM(TIMESTAMPDIFF(HOUR, t.created_at, IFNULL(t.closed_at, NOW()))),1),0)
+                    FROM tickets t
+                    WHERE t.assigned_engineer_id = u.user_id
+                      AND t.deleted_at IS NULL
+                      AND YEAR(t.created_at) = ' . (int) $year . '
+                ) AS invest_hours,
+                (
                     SELECT COUNT(*)
                     FROM users ur
                     WHERE ur.reports_to = u.user_id
                       AND ur.status = "Active"
-                ) AS direct_reports
+                ) AS direct_reports,
+                (
+                    SELECT COALESCE(SUM(GREATEST(0, DATEDIFF(LEAST(td.end_date, ' . $this->db->escape($yearEnd) . '), GREATEST(td.start_date, ' . $this->db->escape($yearStart) . ')) + 1)), 0)
+                    FROM task_delegations td
+                    WHERE td.original_user_id = u.user_id
+                      AND td.approval_status = "approved"
+                      AND td.start_date <= ' . $this->db->escape($yearEnd) . '
+                      AND td.end_date >= ' . $this->db->escape($yearStart) . '
+                ) AS leave_days
             ')
             ->from('users u')
             ->join('departments d', 'd.department_id = u.department_id', 'left')
@@ -78,12 +155,24 @@ class Developer_model extends CI_Model
             ->order_by('u.name', 'ASC')
             ->get()
             ->result_array();
+
+        foreach ($rows as &$row) {
+            $row['leave_days'] = (int) ($row['leave_days'] ?? 0);
+            $row['present_days'] = max($elapsedDays - $row['leave_days'], 0);
+        }
+        unset($row);
+
+        return $rows;
     }
 
     public function getDeveloperPerformanceOverview($reviewerId, $year = null, array $scopeUserIds = [])
     {
         $reviewerId = (int) $reviewerId;
         $year = $year ?: date('Y');
+        $yearWindow = $this->getYearWindow($year);
+        $yearStart = $yearWindow['start'];
+        $yearEnd = $yearWindow['end'];
+        $elapsedDays = (int) $yearWindow['elapsed_days'];
 
         if ($reviewerId <= 0 || empty($scopeUserIds)) {
             return [
@@ -95,6 +184,10 @@ class Developer_model extends CI_Model
                 'in_progress_tickets' => 0,
                 'resolved_tickets' => 0,
                 'closed_tickets' => 0,
+                'delegation_absence' => 0,
+                'active_delegation_absence' => 0,
+                'leave_days_total' => 0,
+                'present_days_total' => 0,
             ];
         }
 
@@ -132,6 +225,31 @@ class Developer_model extends CI_Model
             ->where('status', 'Active')
             ->count_all_results('users');
 
+        $delegationAbsence = $this->db
+            ->where_in('original_user_id', $reportIds)
+            ->where('approval_status', 'approved')
+            ->where('YEAR(start_date)', (int) $year)
+            ->count_all_results('task_delegations');
+
+        $activeDelegationAbsence = $this->db
+            ->where_in('original_user_id', $reportIds)
+            ->where('approval_status', 'approved')
+            ->where('start_date <=', date('Y-m-d'))
+            ->where('end_date >=', date('Y-m-d'))
+            ->count_all_results('task_delegations');
+
+        $leaveDaysTotal = (int) ($this->db
+            ->select('COALESCE(SUM(GREATEST(0, DATEDIFF(LEAST(end_date, ' . $this->db->escape($yearEnd) . '), GREATEST(start_date, ' . $this->db->escape($yearStart) . ')) + 1)), 0) AS leave_days_total', false)
+            ->from('task_delegations')
+            ->where_in('original_user_id', $reportIds)
+            ->where('approval_status', 'approved')
+            ->where('start_date <=', $yearEnd)
+            ->where('end_date >=', $yearStart)
+            ->get()
+            ->row()->leave_days_total ?? 0);
+
+        $presentDaysTotal = max((count($reportIds) * $elapsedDays) - $leaveDaysTotal, 0);
+
         return [
             'reviewer_assigned' => (int) $reviewerAssigned,
             'accepted_total' => (int) $acceptedTotal,
@@ -141,6 +259,10 @@ class Developer_model extends CI_Model
             'in_progress_tickets' => (int) ($statusSummary['in_progress_tickets'] ?? 0),
             'resolved_tickets' => (int) ($statusSummary['resolved_tickets'] ?? 0),
             'closed_tickets' => (int) ($statusSummary['closed_tickets'] ?? 0),
+            'delegation_absence' => (int) $delegationAbsence,
+            'active_delegation_absence' => (int) $activeDelegationAbsence,
+            'leave_days_total' => (int) $leaveDaysTotal,
+            'present_days_total' => (int) $presentDaysTotal,
         ];
     }
 
@@ -252,6 +374,10 @@ class Developer_model extends CI_Model
         $developerId = (int) $developerId;
         $year = $year ?: date('Y');
         $reviewerId = (int) $reviewerId;
+        $yearWindow = $this->getYearWindow($year);
+        $yearStart = $yearWindow['start'];
+        $yearEnd = $yearWindow['end'];
+        $elapsedDays = (int) $yearWindow['elapsed_days'];
 
         if ($developerId <= 0 || empty($scopeUserIds) || !in_array($developerId, array_map('intval', $scopeUserIds), true)) {
             return null;
@@ -290,6 +416,55 @@ class Developer_model extends CI_Model
             ->where('action_type', 'accept')
             ->where('YEAR(created_at)', (int) $year)
             ->count_all_results('ticket_assignment_history');
+
+        $avgResolutionHours = (float) $this->db
+            ->select('COALESCE(ROUND(AVG(TIMESTAMPDIFF(HOUR, created_at, closed_at)),1),0) AS avg_hours', false)
+            ->from('tickets')
+            ->where('assigned_engineer_id', $developerId)
+            ->where('closed_at IS NOT NULL', null, false)
+            ->where('YEAR(created_at)', (int) $year)
+            ->get()
+            ->row()->avg_hours;
+
+        $investHours = (float) $this->db
+            ->select('COALESCE(ROUND(SUM(TIMESTAMPDIFF(HOUR, created_at, IFNULL(closed_at, NOW()))),1),0) AS invested', false)
+            ->from('tickets')
+            ->where('assigned_engineer_id', $developerId)
+            ->where('deleted_at IS NULL', null, false)
+            ->where('YEAR(created_at)', (int) $year)
+            ->get()
+            ->row()->invested;
+
+        $incomingDelegationCount = $this->db
+            ->where('delegated_user_id', $developerId)
+            ->where('approval_status', 'approved')
+            ->where('YEAR(start_date)', (int) $year)
+            ->count_all_results('task_delegations');
+
+        $outgoingDelegationCount = $this->db
+            ->where('original_user_id', $developerId)
+            ->where('approval_status', 'approved')
+            ->where('YEAR(start_date)', (int) $year)
+            ->count_all_results('task_delegations');
+
+        $activeDelegationCount = $this->db
+            ->where('(original_user_id = ' . $developerId . ' OR delegated_user_id = ' . $developerId . ')', null, false)
+            ->where('approval_status', 'approved')
+            ->where('start_date <=', date('Y-m-d'))
+            ->where('end_date >=', date('Y-m-d'))
+            ->count_all_results('task_delegations');
+
+        $leaveDays = (int) ($this->db
+            ->select('COALESCE(SUM(GREATEST(0, DATEDIFF(LEAST(end_date, ' . $this->db->escape($yearEnd) . '), GREATEST(start_date, ' . $this->db->escape($yearStart) . ')) + 1)), 0) AS leave_days', false)
+            ->from('task_delegations')
+            ->where('original_user_id', $developerId)
+            ->where('approval_status', 'approved')
+            ->where('start_date <=', $yearEnd)
+            ->where('end_date >=', $yearStart)
+            ->get()
+            ->row()->leave_days ?? 0);
+
+        $presentDays = max($elapsedDays - $leaveDays, 0);
 
         $reviewerAssignedCount = 0;
         if ($reviewerId > 0) {
@@ -365,6 +540,7 @@ class Developer_model extends CI_Model
                 owner.name AS owner_name,
                 ts.status_name,
                 t.created_at,
+                DATEDIFF(CURDATE(), t.created_at) AS days_open,
                 CASE
                     WHEN EXISTS (
                         SELECT 1
@@ -399,6 +575,23 @@ class Developer_model extends CI_Model
             ->where('YEAR(t.created_at)', (int) $year)
             ->get()
             ->row_array();
+
+        $departmentStatus = $this->db
+            ->select('d.department_name,
+                SUM(CASE WHEN t.status_id = 1 THEN 1 ELSE 0 END) AS open_tickets,
+                SUM(CASE WHEN t.status_id = 2 THEN 1 ELSE 0 END) AS in_progress_tickets,
+                SUM(CASE WHEN t.status_id = 3 THEN 1 ELSE 0 END) AS resolved_tickets,
+                SUM(CASE WHEN t.status_id = 4 THEN 1 ELSE 0 END) AS closed_tickets
+            ', false)
+            ->from('tickets t')
+            ->join('users u', 'u.user_id = t.assigned_engineer_id', 'left')
+            ->join('departments d', 'd.department_id = u.department_id', 'left')
+            ->where('YEAR(t.created_at)', (int) $year)
+            ->where('t.deleted_at IS NULL', null, false)
+            ->group_by('d.department_name')
+            ->order_by('d.department_name', 'ASC')
+            ->get()
+            ->result_array();
 
         $monthlyVolumeRaw = $this->db
             ->select('MONTH(t.created_at) AS month_no, COUNT(*) AS total_count', false)
@@ -445,6 +638,13 @@ class Developer_model extends CI_Model
                 'active_tickets' => (int) ($summary['active_tickets'] ?? 0),
                 'accepted_tickets' => (int) $acceptedCount,
                 'reviewer_assigned_tickets' => (int) $reviewerAssignedCount,
+                'incoming_delegations' => (int) $incomingDelegationCount,
+                'outgoing_delegations' => (int) $outgoingDelegationCount,
+                'active_delegations' => (int) $activeDelegationCount,
+                'leave_days' => (int) $leaveDays,
+                'present_days' => (int) $presentDays,
+                'avg_resolution_hours' => $avgResolutionHours,
+                'invest_hours' => $investHours,
                 'direct_reports' => count($subordinateUsers),
             ],
             'status_breakdown' => [
@@ -458,6 +658,9 @@ class Developer_model extends CI_Model
             'accepted_tickets' => $acceptedTickets,
             'assigned_tickets' => $assignedTickets,
             'current_tickets' => $currentTickets,
+            'department_status' => $departmentStatus,
+            'avg_resolution_hours' => $avgResolutionHours,
+            'invest_hours' => $investHours,
             'subordinates' => $subordinateUsers,
         ];
     }

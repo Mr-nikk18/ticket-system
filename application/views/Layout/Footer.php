@@ -46,8 +46,6 @@
 <script src="<?= base_url() ?>assets/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js"></script>
 <!-- AdminLTE App -->
 <script src="<?= base_url() ?>assets/dist/js/adminlte.js"></script>
-<!-- AdminLTE for demo purposes -->
-<script src="<?= base_url() ?>assets/dist/js/demo.js"></script>
 <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
 <script>
 window.AppConfig = {
@@ -67,6 +65,141 @@ window.AppConfig = {
 var allowedTransitions = window.AppConfig.allowedTransitions;
 </script>
 <script>
+if (!window.__trsScheduleLoginAlertInit) {
+    window.__trsScheduleLoginAlertInit = true;
+
+    $(function () {
+        var config = window.AppConfig || {};
+
+        if (!config.notificationsUrl || !config.scheduleUrl) {
+            return;
+        }
+
+        $.getJSON(config.notificationsUrl, function (res) {
+            var scheduleNotification = null;
+
+            if (!res || !res.notifications || !res.notifications.length) {
+                return;
+            }
+
+            $.each(res.notifications, function (_, item) {
+                if (item.notification_type && item.notification_type !== 'ticket' && item.notification_type !== 'rating') {
+                    scheduleNotification = item;
+                    return false;
+                }
+            });
+
+            if (!scheduleNotification) {
+                return;
+            }
+
+            alert(scheduleNotification.message || 'You have a pending schedule task.');
+
+            if (window.location.href.indexOf(config.scheduleUrl) === -1) {
+                window.location.href = config.scheduleUrl;
+            }
+        });
+    });
+}
+</script>
+<script>
+function buildTaskInputRow(value, readonly) {
+  return `
+    <div class="input-group mb-2">
+      <input type="text" name="tasks[]"
+             class="form-control"
+             ${value ? `value="${value}"` : 'placeholder="Enter Task"'}
+             ${readonly ? 'readonly' : ''}>
+      ${readonly ? '' : `
+      <div class="input-group-append">
+        <button type="button" class="btn btn-danger removeTask">X</button>
+      </div>`}
+    </div>
+  `;
+}
+
+function renderEditableTasks(wrapperSelector, tasks) {
+  const wrapper = $(wrapperSelector);
+  wrapper.empty();
+
+  if (tasks && tasks.length) {
+    $.each(tasks, function(_, task) {
+      wrapper.append(buildTaskInputRow(task.task_title, false));
+    });
+    return;
+  }
+
+  wrapper.append(buildTaskInputRow('', false));
+}
+
+function renderReadonlyTasks(wrapper, tasks, emptyText) {
+  wrapper.empty();
+
+  if (tasks && tasks.length) {
+    tasks.forEach(function(task) {
+      wrapper.append(buildTaskInputRow(task.task_title, true));
+    });
+    return;
+  }
+
+  wrapper.append(buildTaskInputRow(emptyText || 'No Tasks', true));
+}
+
+function renderTaskStatusList(wrapper, tasks) {
+  wrapper.empty();
+
+  if (!(tasks && tasks.length)) {
+    wrapper.append('<div class="text-muted">No Tasks</div>');
+    return;
+  }
+
+  tasks.forEach(function(task) {
+    const badge = task.is_completed == "1"
+      ? '<span class="badge bg-success ms-2">Completed</span>'
+      : '<span class="badge bg-warning ms-2">Pending</span>';
+
+    wrapper.append(`
+      <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+        <span>${task.task_title}</span>
+        ${badge}
+      </div>
+    `);
+  });
+}
+
+function fetchTicketDetails(ticketId, onSuccess) {
+  $.ajax({
+    url: "<?= base_url('TRS/edit_ajax') ?>",
+    type: "POST",
+    data: { ticket_id: ticketId },
+    dataType: "json",
+    success: function(res) {
+      if (!res.status) {
+        alert(res.msg || 'Unable to fetch ticket details');
+        return;
+      }
+
+      onSuccess(res);
+    },
+    error: function() {
+      alert('Unable to fetch ticket details');
+    }
+  });
+}
+
+function loadTaskComments(taskId, targetSelector){
+  $.post(base_url + "dashboard/load_task_comments", {
+    task_id: taskId
+  }, function(response){
+    const box = $(targetSelector || ("#comments-" + taskId));
+    box.html(response);
+
+    if (targetSelector) {
+      box.scrollTop(box[0].scrollHeight);
+    }
+  });
+}
+
     setTimeout(function () {
         document.querySelectorAll('.flash-msg').forEach(function (el) {
             el.classList.remove('show');
@@ -167,19 +300,7 @@ function editFun(ticket_id){
   $("#editLoader").show();
   $("#editContent").hide();
 
-  $.ajax({
-    url: "<?= base_url('TRS/edit_ajax') ?>",
-    type: "POST",
-    data: { ticket_id: ticket_id },
-    dataType: "json",
-
-    success: function(res){
-
-      if(!res.status){
-        alert(res.msg);
-        return;
-      }
-
+  fetchTicketDetails(ticket_id, function(res){
       let role = <?= (int)$this->session->userdata('role_id') ?>;
       let dept = <?= (int)$this->session->userdata('department_id') ?>;
       let t = res.data;
@@ -190,38 +311,7 @@ function editFun(ticket_id){
       $('#edit_description').val(t.description);
 
       // ?? CLEAR OLD TASKS
-      let wrapper = $('#editTaskWrapper');
-      wrapper.html('');
-
-      // ?? APPEND TASKS
-      if(res.tasks && res.tasks.length > 0){
-
-        $.each(res.tasks, function(i, task){
-
-          wrapper.append(`
-            <div class="input-group mb-2">
-              <input type="text" name="tasks[]" 
-                     class="form-control"
-                     value="${task.task_title}">
-              <div class="input-group-append">
-                <button type="button" 
-                        class="btn btn-danger removeTask">X</button>
-              </div>
-            </div>
-          `);
-
-        });
-
-      } else {
-
-        wrapper.append(`
-          <div class="input-group mb-2">
-            <input type="text" name="tasks[]" 
-                   class="form-control"
-                   placeholder="Enter Task">
-          </div>
-        `);
-      }
+      renderEditableTasks('#editTaskWrapper', res.tasks);
 
       // NORMAL USER
       if(dept !== 2){
@@ -246,10 +336,6 @@ function editFun(ticket_id){
 
       $("#editLoader").hide();
       $("#editContent").show();
-    },
-    error: function(){
-      alert('Unable to load ticket details');
-    }
   });
 }
 </script>
@@ -300,64 +386,24 @@ function history(ticket_id){
 </script>
 <script>
 function assign(ticket_id) {
+    fetchTicketDetails(ticket_id, function (res) {
+        const modal = $('#assignModal');
 
-    $.ajax({
-        url: "<?= base_url('TRS/edit_ajax') ?>",
-        type: "POST",
-        data: { ticket_id: ticket_id },
-        dataType: "json",
-        success: function (res) {
+        modal.find('#assign_ticket_id').val(res.data.ticket_id);
+        modal.find('#edit_title').val(res.data.title);
+        modal.find('#edit_description').val(res.data.description);
 
-            if (res.status) {
+        renderTaskStatusList(modal.find('#taskWrapper'), res.tasks);
 
-                const modal = $('#assignModal');
-
-                modal.find('#assign_ticket_id').val(res.data.ticket_id);
-                modal.find('#edit_title').val(res.data.title);
-                modal.find('#edit_description').val(res.data.description);
-          // ===== BUILD TASKS =====
-        let taskWrapper = modal.find('#taskWrapper');
-        taskWrapper.empty();
-
-        if (res.tasks && res.tasks.length > 0) {
-
-    res.tasks.forEach(function(task){
-
-        let badge = task.is_completed == "1"
-            ? '<span class="badge bg-success ms-2">Completed</span>'
-            : '<span class="badge bg-warning ms-2">Pending</span>';
-
-        taskWrapper.append(`
-            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-                <span>${task.task_title}</span>
-                ${badge}
-            </div>
-        `);
-    });
-
-        } else {
-            taskWrapper.append(`<div class="text-muted">No Tasks</div>`);
-        }
-                  // build developers
         let options = '<option value="">-- Select Developer --</option>';
         options += `<option value="<?= $this->session->userdata('user_id') ?>">Assign to Me</option>`;
 
         $.each(res.developers, function (i, dev) {
-            options += `<option value="${dev.user_id}">
-                          ${dev.user_name}
-                        </option>`;
+            options += `<option value="${dev.user_id}">${dev.user_name}</option>`;
         });
 
-        modal.find('#edit_assigned').html(options);
-
-        // ?? PRESELECTS
-        modal.find('#edit_assigned').val(res.data.assigned_engineer_id);
-       // modal.find('#edit_status_admin').val(res.data.status_id);
-
-
-                modal.modal('show');
-            }
-        }
+        modal.find('#edit_assigned').html(options).val(res.data.assigned_engineer_id);
+        modal.modal('show');
     });
 }
 </script>
@@ -387,85 +433,31 @@ $(document).on('submit', '#assignForm', function(e){
 </script>
 <script>
 function reassign(ticket_id) {
+    fetchTicketDetails(ticket_id, function (res) {
+        const modal = $('#reassignModal');
 
-    $.ajax({
-        url: "<?= base_url('TRS/edit_ajax') ?>",
-        type: "POST",
-        data: { ticket_id: ticket_id },
-        dataType: "json",
-        success: function (res) {
+        modal.find('#assign_ticket_id').val(res.data.ticket_id);
+        modal.find('#edit_title').val(res.data.title);
+        modal.find('#edit_description').val(res.data.description);
 
-            if (res.status) {
+        renderTaskStatusList(modal.find('#taskWrapper'), res.tasks);
 
-                const modal = $('#reassignModal');
-
-                modal.find('#assign_ticket_id').val(res.data.ticket_id);
-                modal.find('#edit_title').val(res.data.title);
-                modal.find('#edit_description').val(res.data.description);
-                // ===== BUILD TASKS =====
-        let taskWrapper = modal.find('#taskWrapper');
-        taskWrapper.empty();
-
-        if (res.tasks && res.tasks.length > 0) {
-
-            res.tasks.forEach(function(task){
-
-                let badge = task.is_completed == "1"
-                    ? '<span class="badge bg-success ms-2">Completed</span>'
-                    : '<span class="badge bg-warning ms-2">Pending</span>';
-
-                taskWrapper.append(`
-                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-                        <span>${task.task_title}</span>
-                        ${badge}
-                    </div>
-                `);
-            });
-
-        } else {
-            taskWrapper.append(`<div class="text-muted">No Tasks</div>`);
-        }
-
-                  // build developers
         let options = '<option value="">-- Select Developer --</option>';
-        
 
-      $.each(res.developers, function (i, dev) {
-    if (dev.user_id != <?= $this->session->userdata('user_id') ?>) {
-        options += `<option value="${dev.user_id}">
-                      ${dev.user_name}
-                    </option>`;
-    }
-});
+        $.each(res.developers, function (i, dev) {
+          if (dev.user_id != <?= $this->session->userdata('user_id') ?>) {
+            options += `<option value="${dev.user_id}">${dev.user_name}</option>`;
+          }
+        });
 
-        modal.find('#edit_assigned').html(options);
-
-        // ?? PRESELECTS
-        modal.find('#edit_assigned').val(res.data.assigned_engineer_id);
-       // modal.find('#edit_status_admin').val(res.data.status);
-
-
-                modal.modal('show');
-            }
-        }
+        modal.find('#edit_assigned').html(options).val(res.data.assigned_engineer_id);
+        modal.modal('show');
     });
 }
 </script>
 <script>
 function openLeaveModal(ticket_id) {
-
-    $.ajax({
-        url: "<?= base_url('TRS/edit_ajax') ?>",
-        type: "POST",
-        data: { ticket_id: ticket_id },
-        dataType: "json",
-    success: function (res) {
-
-        if (!res.status) {
-            alert('Unable to fetch ticket details');
-            return;
-        }
-
+    fetchTicketDetails(ticket_id, function (res) {
         const modal = $('#leaveModal');
 
         modal.find('#leave_ticket_id').val(res.data.ticket_id);
@@ -473,37 +465,9 @@ function openLeaveModal(ticket_id) {
         modal.find('#leave_description').val(res.data.description);
         modal.find('#leave_reason').val('');
 
-        let taskWrapper = modal.find('#taskWrapper');
-        taskWrapper.empty();
-
-        // ?? CORRECT PROPERTY
-        if (res.tasks && res.tasks.length > 0) {
-
-            res.tasks.forEach(function(task){
-                taskWrapper.append(`
-                    <div class="input-group mb-2">
-                        <input type="text"
-                            class="form-control"
-                            value="${task.task_title}"
-                            readonly>
-                    </div>
-                `);
-            });
-
-        } else {
-
-            taskWrapper.append(`
-                <div class="input-group mb-2">
-                    <input type="text"
-                        class="form-control"
-                        value="No Tasks"
-                        readonly>
-                    </div>
-            `);
-        }
+        renderReadonlyTasks(modal.find('#taskWrapper'), res.tasks, 'No Tasks');
 
         modal.modal('show');
-    }
     });
 }
 
@@ -913,26 +877,82 @@ $(document).ready(function(){
    REFRESH BUTTON
 ================================ */
 
-$(document).on('click', '#refreshBoard', function(){
+function getMainContentRefreshUrl() {
+    var $ticketFilterForm = $('#ticketFilterForm');
 
-    var btn = $(this);
-    btn.html('<i class="fas fa-spinner fa-spin"></i>');
+    if ($ticketFilterForm.length) {
+        var action = $ticketFilterForm.attr('action') || window.location.pathname;
+        var query = $ticketFilterForm.serialize();
+        return query ? action + '?' + query : action;
+    }
+
+    return window.location.href;
+}
+
+function refreshMainContent(url, $button) {
+    var $mainContent = $('#mainContent');
+
+    if (!$mainContent.length) {
+        window.location.href = url;
+        return;
+    }
+
+    var originalButtonHtml = '';
+
+    if ($button && $button.length) {
+        originalButtonHtml = $button.html();
+        $button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+    }
 
     $.ajax({
-        url: window.location.href,
+        url: url,
         type: "GET",
         success: function(response){
 
             var newContent = $(response).find('#mainContent').html();
-            $('#mainContent').html(newContent);
 
-            // ?? IMPORTANT
+            if (!newContent) {
+                window.location.href = url;
+                return;
+            }
+
+            $mainContent.html(newContent);
+
+            if (window.history && typeof window.history.replaceState === 'function') {
+                window.history.replaceState({}, '', url);
+            }
+
             initKanbanSortable();
+            if (window.TRSSectionShell && typeof window.TRSSectionShell.init === 'function') {
+                window.TRSSectionShell.init($mainContent[0]);
+            }
+        },
+        error: function () {
+            window.location.href = url;
         },
         complete: function(){
-            btn.html('?? Refresh');
+            if ($button && $button.length) {
+                $button.prop('disabled', false).html(originalButtonHtml || 'Refresh');
+            }
         }
     });
+}
+
+$(document).on('change', '.js-ticket-list-filter', function(e){
+
+    e.preventDefault();
+
+    if (!$('#ticketFilterForm').length) {
+        return;
+    }
+
+    refreshMainContent(getMainContentRefreshUrl());
+});
+
+$(document).on('click', '#refreshBoard', function(){
+
+    var btn = $(this);
+    refreshMainContent(getMainContentRefreshUrl(), btn);
 
 });
 
@@ -1317,16 +1337,6 @@ $(document).on("keypress", ".task-comment-input", function(e){
     }
 });
 
-function loadTaskComments(taskId){
-
-    $.post(base_url + "dashboard/load_task_comments", {
-        task_id: taskId
-    }, function(response){
-
-        $("#comments-" + taskId).html(response);
-    });
-}
-
 $(document).on('click','.confirm-btn',function(){
 
     var answer = $(this).data('answer');
@@ -1356,33 +1366,13 @@ $(document).ready(function(){
 
   // CREATE MODAL - Add Task
   $('#addTaskFieldCreate').on('click', function(){
-    $('#createTaskWrapper').append(`
-      <div class="input-group mb-2">
-        <input type="text" name="tasks[]" 
-               class="form-control" 
-               placeholder="Enter Task">
-        <div class="input-group-append">
-          <button type="button" 
-                  class="btn btn-danger removeTask">X</button>
-        </div>
-      </div>
-    `);
+    $('#createTaskWrapper').append(buildTaskInputRow('', false));
   });
 
 
   // EDIT MODAL - Add Task
   $('#addTaskFieldEdit').on('click', function(){
-    $('#editTaskWrapper').append(`
-      <div class="input-group mb-2">
-        <input type="text" name="tasks[]" 
-               class="form-control" 
-               placeholder="Enter Task">
-        <div class="input-group-append">
-          <button type="button" 
-                  class="btn btn-danger removeTask">X</button>
-        </div>
-      </div>
-    `);
+    $('#editTaskWrapper').append(buildTaskInputRow('', false));
   });
 
 
@@ -1453,7 +1443,7 @@ $(document).on('click', '.send-btn', function(){
     }, function(){
 
         input.val('');
-        loadTaskComments(taskId); // ?? SAME FUNCTION
+        loadTaskComments(taskId, '#chat-'+taskId);
     });
 });
 $(document).on('keypress', '.chat-input', function(e){
@@ -1465,44 +1455,55 @@ $(document).on('keypress', '.chat-input', function(e){
     }
 });
 
-function loadTaskComments(taskId){
-
-    $.post(base_url + "dashboard/load_task_comments", {
-        task_id: taskId
-    }, function(response){
-
-        $('#chat-'+taskId).html(response);
-
-        var box = $('#chat-'+taskId);
-        box.scrollTop(box[0].scrollHeight);
-    });
-}
-
-
 </script>
 <script>
-var chatInterval;
+var chatInterval = null;
 
-$('#ticketModal').on('shown.bs.modal', function(){
+function startTicketCommentPolling() {
+    clearInterval(chatInterval);
+
+    if (!$('#ticketModal').is(':visible') || !$('.task-card').length) {
+        return;
+    }
 
     chatInterval = setInterval(function(){
+        if (document.hidden || !$('#ticketModal').is(':visible')) {
+            return;
+        }
 
         $('.task-card').each(function(){
             var taskId = $(this).data('task-id');
-            loadTaskComments(taskId);
+            if (taskId) {
+                loadTaskComments(taskId, '#chat-'+taskId);
+            }
         });
 
-    }, 3000);
+    }, 10000);
+}
 
+$('#ticketModal').on('shown.bs.modal', function(){
+    startTicketCommentPolling();
 });
 
 $('#ticketModal').on('hidden.bs.modal', function(){
     clearInterval(chatInterval);
+    chatInterval = null;
 });
 </script>
 <script>
+var notificationPollInterval = null;
+var notificationPollInFlight = false;
+
+function canPollNotifications() {
+    return !document.hidden && $('#notificationList').length > 0;
+}
 
 function loadNotifications(){
+    if (!canPollNotifications() || notificationPollInFlight) {
+        return;
+    }
+
+    notificationPollInFlight = true;
 
     $.ajax({
         url: "<?= base_url('TRS/get_notifications') ?>",
@@ -1549,8 +1550,24 @@ function loadNotifications(){
                     </span>
                 `);
             }
+        },
+        complete: function () {
+            notificationPollInFlight = false;
         }
     });
+}
+
+function startNotificationPolling() {
+    clearInterval(notificationPollInterval);
+
+    if (!$('#notificationList').length) {
+        return;
+    }
+
+    loadNotifications();
+    notificationPollInterval = setInterval(function () {
+        loadNotifications();
+    }, 15000);
 }
 
 
@@ -1567,11 +1584,13 @@ $(document).on('click', '.notification-item', function(){
 
 
 // Auto Load
-loadNotifications();
+startNotificationPolling();
 
-setInterval(function(){
-    loadNotifications();
-}, 3000);
+document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) {
+        startNotificationPolling();
+    }
+});
 
 </script>
 <script>
@@ -1602,8 +1621,11 @@ $(document).on('click', '.removeTask', function () {
 
 
     </script>
-    <script>
+<script>
 function autoRefreshKanban(){
+    if (document.hidden || (!$('.kanban-column').length && !$('.kanban-team-column').length && !$('.ticket-card').length)) {
+        return;
+    }
 
     $.ajax({
         url: base_url + "TRS/get_all_task_counts",
@@ -1629,14 +1651,30 @@ function autoRefreshKanban(){
 
 }
 
-$(document).ready(function(){
+var kanbanAutoRefreshInterval = null;
+
+function startKanbanAutoRefresh() {
+    clearInterval(kanbanAutoRefreshInterval);
+
+    if (!$('.kanban-column').length && !$('.kanban-team-column').length && !$('.ticket-card').length) {
+        return;
+    }
 
     autoRefreshKanban(); // first load
 
-    setInterval(function(){
+    kanbanAutoRefreshInterval = setInterval(function(){
         autoRefreshKanban();
-    }, 2000); // every 1 miniseconds
+    }, 30000);
+}
 
+$(document).ready(function(){
+    startKanbanAutoRefresh();
+});
+
+document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) {
+        startKanbanAutoRefresh();
+    }
 });
         </script>
 
@@ -1731,6 +1769,7 @@ $(document).on('click', 'button, .btn, input[type="button"]', function () {
 <?php } else { ?>
     <script src="<?= base_url('assets/dist/js/roles/user/user.js') ?>"></script>
 <?php } ?>
+<script src="<?= base_url('assets/dist/js/common/section-shell.js') ?>"></script>
 
 <?php if (!empty($page_js) && is_array($page_js)) { ?>
     <?php foreach ($page_js as $js_file) { ?>

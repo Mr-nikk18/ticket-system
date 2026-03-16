@@ -59,6 +59,13 @@ $totalCompanies = count($companies);
               max="<?= date('Y') + 1 ?>">
             <button type="submit" class="btn btn-warning ml-2">Apply</button>
           </div>
+          <div class="d-flex align-items-center mt-2">
+            <label class="mr-2 mb-0">From</label>
+            <input type="date" id="reportFromDate" class="form-control form-control-sm mr-1" value="<?= date('Y-01-01') ?>" style="width: 160px;">
+            <label class="mr-2 mb-0">To</label>
+            <input type="date" id="reportToDate" class="form-control form-control-sm mr-2" value="<?= date('Y-m-d') ?>" style="width: 160px;">
+            <button type="button" class="btn btn-light btn-sm" id="btnDeveloperReportPdf">Open PDF Report</button>
+          </div>
         </form>
       </div>
 
@@ -94,6 +101,16 @@ $totalCompanies = count($companies);
           </div>
         </div>
         <div class="col-xl-3 col-md-6 mb-3">
+          <div class="perf-stat-card theme-emerald">
+            <div class="perf-stat-icon"><i class="fas fa-user-clock"></i></div>
+            <div>
+              <div class="perf-stat-value" id="perfOverviewDelegation"><?= $overview['delegation_absence'] ?? 0 ?></div>
+              <div class="perf-stat-label">Leave Delegations</div>
+              <div class="perf-stat-sub" id="perfOverviewLeaveMeta"><?= (int) ($overview['leave_days_total'] ?? 0) ?> leave days / <?= (int) ($overview['present_days_total'] ?? 0) ?> present days</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
           <div class="perf-stat-card theme-carbon">
             <div class="perf-stat-icon"><i class="fas fa-chart-line"></i></div>
             <div>
@@ -109,150 +126,180 @@ $totalCompanies = count($companies);
 
   <section class="content pb-4">
     <div class="container-fluid">
-      <div class="row">
-        <div class="col-xl-7">
-          <div class="perf-panel perf-panel-lg mb-4">
-            <div class="perf-panel-head">
-              <div>
-                <h3>Review Queue</h3>
-                <p>Each card shows assignment load, self-accept count, open pressure and reporting depth.</p>
-              </div>
-              <div class="perf-panel-tools">
-                <button type="button" class="btn perf-filter-trigger" id="developerFilterToggle">
-                  <i class="fas fa-filter"></i>
-                </button>
-              </div>
-            </div>
-            <div class="perf-filter-panel" id="developerFilterPanel" style="display:none;">
-              <div class="row">
-                <div class="col-lg-4 mb-3">
-                  <label class="perf-field-label">Search</label>
-                  <input type="text" id="developerPerformanceSearch" class="form-control" placeholder="Name or company">
-                </div>
-                <div class="col-lg-4 mb-3">
-                  <label class="perf-field-label">Company</label>
-                  <select id="developerCompanyFilter" class="form-control">
-                    <option value="">All Companies</option>
-                    <?php foreach ($filters['companies'] as $company) { ?>
-                      <option value="<?= htmlspecialchars($company) ?>"><?= htmlspecialchars($company) ?></option>
-                    <?php } ?>
-                  </select>
-                </div>
-                <div class="col-lg-4 mb-3">
-                  <label class="perf-field-label">Department</label>
-                  <select id="developerPerformanceDepartmentFilter" class="form-control">
-                    <option value="">All Departments</option>
-                    <?php foreach ($filters['departments'] as $departmentName) { ?>
-                      <option value="<?= htmlspecialchars($departmentName) ?>"><?= htmlspecialchars($departmentName) ?></option>
-                    <?php } ?>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div class="perf-overview-chart-wrap">
-              <div>
-                <span class="perf-mini-label">Team state distribution</span>
-                <h4>Live Ticket Status</h4>
-              </div>
-              <canvas id="perfOverviewStatusChart" height="120"></canvas>
-            </div>
+      <div class="perf-side-shell">
+        <aside class="perf-side-nav">
+          <div class="perf-side-nav__head">
+            <span class="perf-mini-label">Section Navigator</span>
+            <h3>Performance Sections</h3>
+            <p>Sidebar se section choose karo. Detail aur hierarchy same page par AJAX se load honge.</p>
           </div>
 
-          <div class="row" id="developerPerformanceGrid">
-            <?php if (!empty($developers)) { ?>
-              <?php foreach ($developers as $dev) { ?>
-                <?php
-                $total = (int) $dev['total_tickets'];
-                $assigned = (int) $dev['assigned_tickets'];
-                $accepted = (int) $dev['accepted_tickets'];
-                $resolved = (int) $dev['resolved_tickets'];
-                $pending = (int) $dev['pending_tickets'];
-                $reviewerAssignedTickets = (int) ($dev['reviewer_assigned_tickets'] ?? 0);
-                $devDirectReports = (int) ($dev['direct_reports'] ?? 0);
-                $score = $total > 0 ? round(($resolved / $total) * 100) : 0;
-                $assignedPct = $total > 0 ? round(($assigned / $total) * 100) : 0;
-                $acceptedPct = $total > 0 ? round(($accepted / $total) * 100) : 0;
-                $resolvedPct = $total > 0 ? round(($resolved / $total) * 100) : 0;
-                $pendingPct = $total > 0 ? round(($pending / $total) * 100) : 0;
-                $initials = strtoupper(substr(trim((string) $dev['name']), 0, 1));
-                ?>
-                <div
-                  class="col-xl-6 developer-performance-item"
-                  data-name="<?= htmlspecialchars(strtolower($dev['name'])) ?>"
-                  data-company="<?= htmlspecialchars(strtolower($dev['company_name'] ?: 'no company')) ?>"
-                  data-department="<?= htmlspecialchars(strtolower($dev['department_name'] ?: 'no department')) ?>">
-                  <div class="perf-dev-card" data-developer-id="<?= (int) $dev['user_id'] ?>">
-                    <div class="perf-dev-glow"></div>
-                    <div class="perf-dev-header">
-                      <div class="perf-dev-avatar"><?= htmlspecialchars($initials) ?></div>
-                      <div class="perf-dev-meta">
-                        <h4><?= htmlspecialchars($dev['name']) ?></h4>
-                        <div class="perf-dev-role"><?= htmlspecialchars($dev['company_name'] ?: 'TRS') ?> / <?= htmlspecialchars($dev['department_name'] ?: 'No Department') ?></div>
-                      </div>
-                      <div class="perf-dev-score"><?= $score ?>%</div>
-                    </div>
+          <button type="button" class="perf-side-nav-btn is-active" data-target="queue">
+            <span class="perf-side-nav-btn__title">Review Queue</span>
+            <span class="perf-side-nav-btn__meta">Developer cards and filters</span>
+          </button>
 
-                    <div class="perf-chip-row">
-                      <span class="perf-chip soft">You assigned <?= $reviewerAssignedTickets ?></span>
-                      <span class="perf-chip dark">Accepted <?= $accepted ?></span>
-                      <span class="perf-chip amber">Reports <?= $devDirectReports ?></span>
-                    </div>
+          <button type="button" class="perf-side-nav-btn" data-target="detail">
+            <span class="perf-side-nav-btn__title">Performance Detail</span>
+            <span class="perf-side-nav-btn__meta">Full-width AJAX detail view</span>
+          </button>
 
-                    <div class="perf-metric-list">
-                      <div class="perf-metric-row">
-                        <span>Assigned</span>
-                        <div class="perf-metric-bar"><span style="width: <?= $assignedPct ?>%"></span></div>
-                        <strong><?= $assigned ?></strong>
-                      </div>
-                      <div class="perf-metric-row">
-                        <span>Accepted</span>
-                        <div class="perf-metric-bar metric-blue"><span style="width: <?= $acceptedPct ?>%"></span></div>
-                        <strong><?= $accepted ?></strong>
-                      </div>
-                      <div class="perf-metric-row">
-                        <span>Resolved</span>
-                        <div class="perf-metric-bar metric-green"><span style="width: <?= $resolvedPct ?>%"></span></div>
-                        <strong><?= $resolved ?></strong>
-                      </div>
-                      <div class="perf-metric-row">
-                        <span>Pending</span>
-                        <div class="perf-metric-bar metric-amber"><span style="width: <?= $pendingPct ?>%"></span></div>
-                        <strong><?= $pending ?></strong>
-                      </div>
-                    </div>
+          <button type="button" class="perf-side-nav-btn" data-target="hierarchy">
+            <span class="perf-side-nav-btn__title">Hierarchy Manager</span>
+            <span class="perf-side-nav-btn__meta">Reporting structure and reassignment</span>
+          </button>
 
-                    <div class="perf-dev-footer">
-                      <div>
-                        <span class="perf-mini-label">Current load</span>
-                        <strong><?= $total ?> tickets</strong>
+          <div class="perf-side-context" id="perfSideContext">
+            <span class="perf-mini-label">Current Focus</span>
+            <h4 id="perfSideContextTitle">Review Queue</h4>
+            <p id="perfSideContextMeta">Developer card click karo aur full-width detail workspace AJAX se open hoga.</p>
+          </div>
+        </aside>
+
+        <div class="perf-side-main">
+          <section class="perf-main-section" id="perfQueueSection">
+            <div class="perf-panel perf-panel-lg mb-4">
+              <div class="perf-panel-head">
+                <div>
+                  <h3>Review Queue</h3>
+                  <p>Each card shows assignment load, self-accept count, open pressure and reporting depth.</p>
+                </div>
+                <div class="perf-panel-tools">
+                  <button type="button" class="btn perf-filter-trigger" id="developerFilterToggle">
+                    <i class="fas fa-filter"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="perf-filter-panel" id="developerFilterPanel" style="display:none;">
+                <div class="row">
+                  <div class="col-lg-4 mb-3">
+                    <label class="perf-field-label">Search</label>
+                    <input type="text" id="developerPerformanceSearch" class="form-control" placeholder="Name or company">
+                  </div>
+                  <div class="col-lg-4 mb-3">
+                    <label class="perf-field-label">Company</label>
+                    <select id="developerCompanyFilter" class="form-control">
+                      <option value="">All Companies</option>
+                      <?php foreach ($filters['companies'] as $company) { ?>
+                        <option value="<?= htmlspecialchars($company) ?>"><?= htmlspecialchars($company) ?></option>
+                      <?php } ?>
+                    </select>
+                  </div>
+                  <div class="col-lg-4 mb-3">
+                    <label class="perf-field-label">Department</label>
+                    <select id="developerPerformanceDepartmentFilter" class="form-control">
+                      <option value="">All Departments</option>
+                      <?php foreach ($filters['departments'] as $departmentName) { ?>
+                        <option value="<?= htmlspecialchars($departmentName) ?>"><?= htmlspecialchars($departmentName) ?></option>
+                      <?php } ?>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="perf-overview-chart-wrap">
+                <div>
+                  <span class="perf-mini-label">Team state distribution</span>
+                  <h4>Live Ticket Status</h4>
+                </div>
+                <canvas id="perfOverviewStatusChart" height="120"></canvas>
+              </div>
+            </div>
+
+            <div class="row" id="developerPerformanceGrid">
+              <?php if (!empty($developers)) { ?>
+                <?php foreach ($developers as $dev) { ?>
+                  <?php
+                  $total = (int) $dev['total_tickets'];
+                  $assigned = (int) $dev['assigned_tickets'];
+                  $accepted = (int) $dev['accepted_tickets'];
+                  $resolved = (int) $dev['resolved_tickets'];
+                  $pending = (int) $dev['pending_tickets'];
+                  $reviewerAssignedTickets = (int) ($dev['reviewer_assigned_tickets'] ?? 0);
+                  $devDirectReports = (int) ($dev['direct_reports'] ?? 0);
+                  $leaveDays = (int) ($dev['leave_days'] ?? 0);
+                  $presentDays = (int) ($dev['present_days'] ?? 0);
+                  $score = $total > 0 ? round(($resolved / $total) * 100) : 0;
+                  $assignedPct = $total > 0 ? round(($assigned / $total) * 100) : 0;
+                  $acceptedPct = $total > 0 ? round(($accepted / $total) * 100) : 0;
+                  $resolvedPct = $total > 0 ? round(($resolved / $total) * 100) : 0;
+                  $pendingPct = $total > 0 ? round(($pending / $total) * 100) : 0;
+                  $initials = strtoupper(substr(trim((string) $dev['name']), 0, 1));
+                  ?>
+                  <div
+                    class="col-xl-6 developer-performance-item"
+                    data-name="<?= htmlspecialchars(strtolower($dev['name'])) ?>"
+                    data-company="<?= htmlspecialchars(strtolower($dev['company_name'] ?: 'no company')) ?>"
+                    data-department="<?= htmlspecialchars(strtolower($dev['department_name'] ?: 'no department')) ?>">
+                    <div class="perf-dev-card" data-developer-id="<?= (int) $dev['user_id'] ?>" data-developer-name="<?= htmlspecialchars($dev['name']) ?>">
+                      <div class="perf-dev-glow"></div>
+                      <div class="perf-dev-header">
+                        <div class="perf-dev-avatar"><?= htmlspecialchars($initials) ?></div>
+                        <div class="perf-dev-meta">
+                          <h4><?= htmlspecialchars($dev['name']) ?></h4>
+                          <div class="perf-dev-role"><?= htmlspecialchars($dev['company_name'] ?: 'TRS') ?> / <?= htmlspecialchars($dev['department_name'] ?: 'No Department') ?></div>
+                        </div>
+                        <div class="perf-dev-score"><?= $score ?>%</div>
                       </div>
-                      <div>
-                        <span class="perf-mini-label">Open balance</span>
-                        <strong><?= $pending ?></strong>
+
+                      <div class="perf-chip-row">
+                        <span class="perf-chip soft">You assigned <?= $reviewerAssignedTickets ?></span>
+                        <span class="perf-chip dark">Accepted <?= $accepted ?></span>
+                        <span class="perf-chip slate">Leave <?= $leaveDays ?>d</span>
+                        <span class="perf-chip green">Present <?= $presentDays ?>d</span>
+                        <span class="perf-chip slate">Avg Res <?= (int)($dev['avg_resolution_hours'] ?? 0) ?>h</span>
+                        <span class="perf-chip green">Invested <?= (int)($dev['invest_hours'] ?? 0) ?>h</span>
+                        <span class="perf-chip amber">Reports <?= $devDirectReports ?></span>
                       </div>
-                      <div class="perf-link-label">Click to inspect</div>
+
+                      <div class="perf-metric-list">
+                        <div class="perf-metric-row">
+                          <span>Assigned</span>
+                          <div class="perf-metric-bar"><span style="width: <?= $assignedPct ?>%"></span></div>
+                          <strong><?= $assigned ?></strong>
+                        </div>
+                        <div class="perf-metric-row">
+                          <span>Accepted</span>
+                          <div class="perf-metric-bar metric-blue"><span style="width: <?= $acceptedPct ?>%"></span></div>
+                          <strong><?= $accepted ?></strong>
+                        </div>
+                        <div class="perf-metric-row">
+                          <span>Resolved</span>
+                          <div class="perf-metric-bar metric-green"><span style="width: <?= $resolvedPct ?>%"></span></div>
+                          <strong><?= $resolved ?></strong>
+                        </div>
+                        <div class="perf-metric-row">
+                          <span>Pending</span>
+                          <div class="perf-metric-bar metric-amber"><span style="width: <?= $pendingPct ?>%"></span></div>
+                          <strong><?= $pending ?></strong>
+                        </div>
+                      </div>
+
+                      <div class="perf-dev-footer">
+                        <div>
+                          <span class="perf-mini-label">Current load</span>
+                          <strong><?= $total ?> tickets</strong>
+                        </div>
+                        <div>
+                          <span class="perf-mini-label">Open balance</span>
+                          <strong><?= $pending ?></strong>
+                        </div>
+                        <div class="perf-link-label">Click to inspect</div>
+                      </div>
                     </div>
+                  </div>
+                <?php } ?>
+              <?php } else { ?>
+                <div class="col-12">
+                  <div class="perf-panel text-center text-muted py-5">
+                    No developer data available for <?= $selectedYearValue ?>.
                   </div>
                 </div>
               <?php } ?>
-            <?php } else { ?>
-              <div class="col-12">
-                <div class="perf-panel text-center text-muted py-5">
-                  No developer data available for <?= $selectedYearValue ?>.
-                </div>
-              </div>
-            <?php } ?>
-          </div>
-        </div>
-
-        <div class="col-xl-5">
-          <div class="perf-panel perf-sticky-panel">
-            <div class="perf-workspace-tabs">
-              <button type="button" class="perf-tab-btn is-active" data-target="detail">Performance</button>
-              <button type="button" class="perf-tab-btn" data-target="hierarchy">Hierarchy Chart</button>
             </div>
+          </section>
 
-            <div class="perf-workspace-pane" id="perfDetailPane">
+          <section class="perf-main-section" id="perfDetailSection" style="display:none;">
+            <div class="perf-panel perf-main-panel">
               <div class="perf-pane-head">
                 <div>
                   <span class="perf-mini-label">Inspection workspace</span>
@@ -264,12 +311,14 @@ $totalCompanies = count($companies);
                 <div class="perf-empty-state">
                   <i class="fas fa-user-chart"></i>
                   <h4>Detail will load here</h4>
-                  <p>Card click se accepted tickets, assigned by you, live state, monthly load aur tables isi panel me khulenge.</p>
+                  <p>Card click se accepted tickets, assigned by you, live state, monthly load aur tables full section me khulenge.</p>
                 </div>
               </div>
             </div>
+          </section>
 
-            <div class="perf-workspace-pane" id="perfHierarchyPane" style="display:none;">
+          <section class="perf-main-section" id="perfHierarchySection" style="display:none;">
+            <div class="perf-panel perf-main-panel">
               <div class="perf-pane-head">
                 <div>
                   <span class="perf-mini-label">Reporting structure</span>
@@ -314,7 +363,7 @@ $totalCompanies = count($companies);
                 </div>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>
@@ -446,6 +495,108 @@ $totalCompanies = count($companies);
 
 .perf-panel-lg {
   padding-bottom: 1rem;
+}
+
+.perf-side-shell {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.perf-side-nav {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+  min-height: calc(100vh - 7rem);
+  background: linear-gradient(180deg, rgba(33, 28, 20, 0.96), rgba(79, 56, 24, 0.92));
+  border: 1px solid rgba(255, 234, 200, 0.16);
+  border-radius: 28px;
+  box-shadow: 0 22px 54px rgba(31, 22, 13, 0.18);
+  color: #fff4e1;
+}
+
+.perf-side-nav__head h3 {
+  margin: 0.35rem 0 0.45rem;
+  color: #fff8ef;
+}
+
+.perf-side-nav__head p {
+  margin: 0;
+  color: rgba(255, 243, 224, 0.72);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.perf-side-nav-btn {
+  width: 100%;
+  border: 1px solid rgba(255, 234, 200, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff5e5;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.perf-side-nav-btn:hover {
+  transform: translateX(3px);
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.perf-side-nav-btn.is-active {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #1f1a13;
+  border-color: transparent;
+  box-shadow: 0 16px 36px rgba(245, 158, 11, 0.26);
+}
+
+.perf-side-nav-btn__title {
+  display: block;
+  font-weight: 700;
+  font-size: 0.96rem;
+}
+
+.perf-side-nav-btn__meta {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.79rem;
+  opacity: 0.82;
+}
+
+.perf-side-context {
+  margin-top: auto;
+  padding: 0.95rem 1rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 234, 200, 0.12);
+}
+
+.perf-side-context h4 {
+  margin: 0.35rem 0;
+  color: #fff8ef;
+}
+
+.perf-side-context p {
+  margin: 0;
+  color: rgba(255, 243, 224, 0.72);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.perf-side-main {
+  min-width: 0;
+}
+
+.perf-main-section {
+  min-width: 0;
+}
+
+.perf-main-panel {
+  min-height: calc(100vh - 7rem);
 }
 
 .perf-panel-head,
@@ -620,35 +771,6 @@ $totalCompanies = count($companies);
   justify-self: end;
   color: #21436a;
   font-weight: 700;
-}
-
-.perf-sticky-panel {
-  position: sticky;
-  top: 1rem;
-}
-
-.perf-workspace-tabs {
-  display: flex;
-  background: #f6ecdb;
-  border-radius: 18px;
-  padding: 0.3rem;
-  margin-bottom: 1rem;
-}
-
-.perf-tab-btn {
-  flex: 1;
-  border: 0;
-  background: transparent;
-  border-radius: 14px;
-  padding: 0.7rem 0.8rem;
-  color: #7c6748;
-  font-weight: 700;
-}
-
-.perf-tab-btn.is-active {
-  background: linear-gradient(135deg, #1f3b5c, #35587b);
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(31, 59, 92, 0.22);
 }
 
 .perf-inline-badge {
@@ -959,12 +1081,13 @@ $totalCompanies = count($companies);
 }
 
 @media (max-width: 1199.98px) {
-  .perf-sticky-panel {
-    position: static;
+  .perf-side-shell {
+    grid-template-columns: 250px minmax(0, 1fr);
   }
 }
 
 @media (max-width: 991.98px) {
+  .perf-side-shell,
   .perf-hero,
   .perf-hierarchy-layout,
   .perf-chart-grid,
@@ -975,6 +1098,15 @@ $totalCompanies = count($companies);
 
   .perf-hero {
     align-items: flex-start;
+  }
+
+  .perf-side-nav {
+    position: static;
+    min-height: 0;
+  }
+
+  .perf-main-panel {
+    min-height: 0;
   }
 }
 
@@ -997,6 +1129,7 @@ window.DeveloperPerformanceConfig = {
   hierarchyMemberUrl: '<?= base_url('Developer/developer_hierarchy_member') ?>',
   hierarchyUpdateUrl: '<?= base_url('Developer/developer_hierarchy_update') ?>',
   dataUrl: '<?= base_url('Developer/developer_performance_data') ?>',
+  exportUrl: '<?= base_url('Developer/developer_performance_report') ?>',
   year: <?= $selectedYearValue ?>,
   fyLabel: '<?= htmlspecialchars($fyLabel, ENT_QUOTES) ?>',
   initialOverview: <?= json_encode([

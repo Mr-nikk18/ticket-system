@@ -4,6 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class MY_Controller extends CI_Controller {
     protected $page_css = [];
     protected $page_js = [];
+    protected $current_user = [];
 
     public function __construct()
     {
@@ -31,10 +32,6 @@ class MY_Controller extends CI_Controller {
             exit;
         }
 
-        // update activity
-        $this->session->set_userdata('last_activity', time());
-
-        // update activity
         $this->session->set_userdata('last_activity', time());
 
         // ✅ LOAD SIDEBAR MENUS FOR ALL PAGES
@@ -45,27 +42,108 @@ class MY_Controller extends CI_Controller {
                 $this->session->userdata('role_id')
             );
 
+        $this->current_user = [
+            'user_id' => (int) $this->session->userdata('user_id'),
+            'role_id' => (int) $this->session->userdata('role_id'),
+            'department_id' => (int) $this->session->userdata('department_id'),
+        ];
+
         $this->load->vars([
             'menus' => $menus,
-            'current_user_id' => $this->getCurrentUserId(),
-            'current_role_id' => $this->getCurrentRoleId(),
-            'current_department_id' => $this->getCurrentDepartmentId(),
+            'current_user_id' => $this->current_user['user_id'],
+            'current_role_id' => $this->current_user['role_id'],
+            'current_department_id' => $this->current_user['department_id'],
         ]);
     }
 
     protected function getCurrentUserId()
     {
-        return (int) $this->session->userdata('user_id');
+        return (int) $this->current_user['user_id'];
     }
 
     protected function getCurrentRoleId()
     {
-        return (int) $this->session->userdata('role_id');
+        return (int) $this->current_user['role_id'];
     }
 
     protected function getCurrentDepartmentId()
     {
-        return (int) $this->session->userdata('department_id');
+        return (int) $this->current_user['department_id'];
+    }
+
+    protected function getCurrentUserContext()
+    {
+        return $this->current_user;
+    }
+
+    protected function isDepartmentHeadUser()
+    {
+        if (!isset($this->User_model)) {
+            $this->load->model('User_model');
+        }
+
+        return $this->User_model->isDepartmentHead(
+            $this->getCurrentUserId(),
+            $this->getCurrentDepartmentId()
+        );
+    }
+
+    protected function canViewAcrossDepartments()
+    {
+        return $this->getCurrentRoleId() === 2 || $this->isDepartmentHeadUser();
+    }
+
+    protected function getOwnDepartmentUserIds()
+    {
+        if (!isset($this->User_model)) {
+            $this->load->model('User_model');
+        }
+
+        return $this->User_model->getDepartmentUserIds($this->getCurrentDepartmentId());
+    }
+
+    protected function getVisibleUserIdsByHierarchy()
+    {
+        if (!isset($this->User_model)) {
+            $this->load->model('User_model');
+        }
+
+        return $this->User_model->getVisibleUserIdsForScope(
+            $this->getCurrentUserId(),
+            $this->getCurrentDepartmentId(),
+            $this->getCurrentRoleId()
+        );
+    }
+
+    protected function canViewDepartment($departmentId)
+    {
+        $departmentId = (int) $departmentId;
+
+        return $departmentId > 0 && (
+            $departmentId === $this->getCurrentDepartmentId() ||
+            $this->canViewAcrossDepartments()
+        );
+    }
+
+    protected function ensureRoleAccess($role_ids)
+    {
+        if (!in_array($this->getCurrentRoleId(), (array) $role_ids, true)) {
+            show_error('Unauthorized');
+        }
+    }
+
+    protected function ensureDepartmentAccess($department_ids)
+    {
+        if (!in_array($this->getCurrentDepartmentId(), (array) $department_ids, true)) {
+            show_error('Unauthorized');
+        }
+    }
+
+    protected function respondJson(array $payload)
+    {
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($payload));
     }
 
     protected function isRole($role_id)

@@ -1,11 +1,22 @@
 <?php if (!empty($today_tasks)) { ?>
     <?php foreach ($today_tasks as $task) { ?>
-        <tr>
+        <?php $canCompleteTask = $task->log_status !== 'completed' && (((int) $task->effective_user_id === (int) $current_user_id) || ((int) ($krupal_approver_id ?? 0) === (int) $current_user_id)); ?>
+        <tr
+            data-log-status="<?php echo htmlspecialchars($task->log_status); ?>"
+            data-schedule-name="<?php echo htmlspecialchars($task->schedule_name); ?>"
+            data-task-time="<?php echo !empty($task->task_time) ? htmlspecialchars(date('h:i A', strtotime($task->task_time))) : '-'; ?>"
+            data-can-complete="<?php echo $canCompleteTask ? '1' : '0'; ?>"
+        >
             <td>
                 <div class="schedule-name">
                     <strong><?php echo $task->schedule_name; ?></strong>
                     <span class="schedule-description"><?php echo ucfirst($task->frequency); ?> schedule</span>
                 </div>
+            </td>
+            <td>
+                <?php $priority = !empty($task->priority) ? strtolower($task->priority) : 'medium';
+                $priorityClass = $priority === 'high' ? 'schedule-badge--inactive' : ($priority === 'medium' ? 'schedule-badge--pending' : 'schedule-badge--active'); ?>
+                <span class="schedule-badge <?php echo $priorityClass; ?>" style="font-size:0.7rem; text-transform: capitalize;"><?php echo $priority; ?></span>
             </td>
             <td>
                 <?php echo !empty($task->owner_display_name) ? $task->owner_display_name : $task->effective_user_name; ?>
@@ -20,7 +31,7 @@
                 </span>
             </td>
             <td>
-                <?php if ($task->log_status !== 'completed' && (int) $task->effective_user_id === (int) $current_user_id) { ?>
+                <?php if ($canCompleteTask) { ?>
                     <button
                         type="button"
                         class="btn btn-sm btn-outline-success js-complete-schedule"
@@ -30,13 +41,13 @@
                         Mark Complete
                     </button>
                 <?php } else { ?>
-                    <span class="schedule-inline-note">No action</span>
+                    <span class="schedule-inline-note"><?php echo (int) $task->effective_user_id === (int) $current_user_id ? 'Completed' : 'Read only'; ?></span>
                 <?php } ?>
             </td>
         </tr>
     <?php } ?>
 <?php } else { ?>
     <tr>
-        <td colspan="5" class="schedule-empty">No due tasks for the selected user today.</td>
+        <td colspan="6" class="schedule-empty">No due tasks for the selected filter.</td>
     </tr>
 <?php } ?>

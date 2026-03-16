@@ -134,6 +134,42 @@ class Developer extends MY_Controller
     ]);
   }
 
+  public function developer_performance_report()
+  {
+    if (!$this->canAccessPerformance()) {
+      $this->session->set_flashdata('failed', 'Unauthorized');
+      redirect('Developer/developer_performance');
+      return;
+    }
+
+    $year = (int) $this->input->get('year');
+    if ($year <= 0) {
+      $year = (int) date('Y');
+    }
+    $from_date = $this->input->get('from_date');
+    $to_date = $this->input->get('to_date');
+
+    if (!$from_date || strtotime($from_date) === false) {
+      $from_date = date('Y-01-01', strtotime($year . '-01-01'));
+    }
+    if (!$to_date || strtotime($to_date) === false) {
+      $to_date = date('Y-m-d');
+    }
+
+    $scopeUserIds = $this->getPerformanceScopeUserIds();
+    $currentUserId = $this->getCurrentUserId();
+
+    $data = [
+      'year' => $year,
+      'from_date' => $from_date,
+      'to_date' => $to_date,
+      'overview' => $this->Developer_model->getDeveloperPerformanceOverview($currentUserId, $year, $scopeUserIds),
+      'developers' => $this->Developer_model->getDeveloperPerformance($year, $scopeUserIds, $currentUserId),
+    ];
+
+    $this->load->view('Same_pages/developer_performance_report', $data);
+  }
+
   public function developer_hierarchy_data()
   {
     if (!$this->canAccessPerformance()) {

@@ -12,6 +12,10 @@ class Schedule_model extends CI_Model {
                 ->where('schedule_tasks.frequency', 'monthly')
                 ->where('DAY(schedule_tasks.start_date) = DAY(' . $this->db->escape($date) . ')', null, false)
             ->group_end()
+            ->or_group_start()
+                ->where('schedule_tasks.frequency', 'once')
+                ->where('DATE(schedule_tasks.start_date) = ' . $this->db->escape($date), null, false)
+            ->group_end()
         ->group_end();
     }
 
@@ -22,10 +26,13 @@ class Schedule_model extends CI_Model {
         }
 
         return $this->db
-            ->select('user_id, name, role_id, department_id')
+            ->select('users.user_id, users.name, users.role_id, users.department_id, departments.department_name')
             ->from('users')
-            ->where_in('user_id', array_unique(array_map('intval', $user_ids)))
-            ->order_by('name', 'ASC')
+            ->join('departments', 'departments.department_id = users.department_id', 'left')
+            ->where('users.status', 'Active')
+            ->where_in('users.user_id', array_unique(array_map('intval', $user_ids)))
+            ->order_by('departments.department_name', 'ASC')
+            ->order_by('users.name', 'ASC')
             ->get()
             ->result();
     }
@@ -75,30 +82,50 @@ class Schedule_model extends CI_Model {
             ->row();
     }
 
-    public function getVisibleSchedules($user_id, array $subordinate_ids = [])
+    public function getVisibleSchedules(array $visible_user_ids = [])
     {
-        $visible_user_ids = array_unique(array_merge([(int) $user_id], array_map('intval', $subordinate_ids)));
+        $visible_user_ids = array_unique(array_map('intval', $visible_user_ids));
+        if (empty($visible_user_ids)) {
+            return [];
+        }
 
         $this->db
-            ->select('schedule_tasks.*, users.name as assigned_user, creator.name as created_by_name')
+            ->select('schedule_tasks.*, users.name as assigned_user, users.department_id as assigned_department_id, departments.department_name as assigned_department_name, creator.name as created_by_name')
             ->from('schedule_tasks')
             ->join('users', 'users.user_id = schedule_tasks.assigned_user_id', 'left')
+            ->join('departments', 'departments.department_id = users.department_id', 'left')
             ->join('users as creator', 'creator.user_id = schedule_tasks.created_by', 'left');
 
-        if (!empty($visible_user_ids)) {
-            $this->db->group_start()
-                ->where_in('schedule_tasks.assigned_user_id', $visible_user_ids)
-                ->or_where('schedule_tasks.created_by', (int) $user_id)
-                ->group_end();
-        } else {
-            $this->db->group_start()
-                ->where('schedule_tasks.assigned_user_id', (int) $user_id)
-                ->or_where('schedule_tasks.created_by', (int) $user_id)
-                ->group_end();
-        }
+        $this->db->group_start()
+            ->where_in('schedule_tasks.assigned_user_id', $visible_user_ids)
+            ->or_where_in('schedule_tasks.created_by', $visible_user_ids)
+            ->group_end();
 
         return $this->db
             ->order_by('schedule_tasks.id', 'DESC')
+            ->get()
+            ->result();
+    }
+
+    public function getActiveScheduleTasksForUser($user_id, $dept_id = null)
+    {
+        if ($user_id <= 0) {
+            return [];
+        }
+
+        $this->db
+            ->select('schedule_tasks.*')
+            ->from('schedule_tasks')
+            ->join('users', 'users.user_id = schedule_tasks.assigned_user_id', 'left')
+            ->where('schedule_tasks.assigned_user_id', (int) $user_id)
+            ->where('schedule_tasks.status', 'active');
+
+        if (!empty($dept_id)) {
+            $this->db->where('users.department_id', (int) $dept_id);
+        }
+
+        return $this->db
+            ->order_by('schedule_tasks.schedule_name', 'ASC')
             ->get()
             ->result();
     }
@@ -115,7 +142,13 @@ class Schedule_model extends CI_Model {
             ->join('users as original', 'original.user_id = task_delegations.original_user_id', 'left')
             ->join('users as delegated', 'delegated.user_id = task_delegations.delegated_user_id', 'left')
             ->where_in('task_delegations.original_user_id', array_unique(array_map('intval', $original_user_ids)))
-            ->where('task_delegations.approval_status', 'approved')
+            ->group_start()
+                ->where('task_delegations.approval_status', 'approved')
+                ->or_group_start()
+                    ->where('task_delegations.approval_status', 'pending')
+                    ->where('task_delegations.start_date <', $date)
+                ->group_end()
+            ->group_end()
             ->where('task_delegations.start_date <=', $date)
             ->where('task_delegations.end_date >=', $date)
             ->order_by('task_delegations.id', 'DESC')
@@ -132,25 +165,50 @@ class Schedule_model extends CI_Model {
         return $map;
     }
 
-    public function getTodayTasksForScope($viewer_user_id, array $scope_user_ids, $selected_user_id, $date)
+    public function getTodayTasksForScope($viewer_user_id, array $scope_user_ids, $selected_user_id, $date, $dept_id = null, $mode = 'today', $priority = 'all')
     {
         $scope_user_ids = array_unique(array_map('intval', $scope_user_ids));
         $selected_user_id = (int) $selected_user_id;
+        $filter_by_selected_user = $selected_user_id > 0;
+        $today = date('Y-m-d');
+        $current_time = date('H:i:s');
+        $allowed_priorities = ['high', 'medium', 'low', 'all'];
+        $priority = strtolower(trim((string) $priority));
+        if (!in_array($priority, $allowed_priorities, true)) {
+            $priority = 'all';
+        }
 
-        if (empty($scope_user_ids) || !in_array($selected_user_id, $scope_user_ids, true)) {
+        if (empty($scope_user_ids)) {
+            return [];
+        }
+
+        if ($filter_by_selected_user && !in_array($selected_user_id, $scope_user_ids, true)) {
             return [];
         }
 
         $this->db
-            ->select('schedule_tasks.*, users.name as assigned_user, creator.name as created_by_name')
+            ->select('schedule_tasks.*, users.name as assigned_user, users.department_id as assigned_department_id, departments.department_name as assigned_department_name, creator.name as created_by_name')
             ->from('schedule_tasks')
             ->join('users', 'users.user_id = schedule_tasks.assigned_user_id', 'left')
+            ->join('departments', 'departments.department_id = users.department_id', 'left')
             ->join('users as creator', 'creator.user_id = schedule_tasks.created_by', 'left')
-            ->where('schedule_tasks.status', 'active');
+            ->where('schedule_tasks.status', 'active')
+            ->where_in('schedule_tasks.assigned_user_id', $scope_user_ids);
 
-        $this->applyDueDateCondition($date);
+        if (!empty($dept_id)) {
+            $this->db->where('users.department_id', (int) $dept_id);
+        }
+
+        if ($mode === 'today') {
+            $this->applyDueDateCondition($date);
+        }
+
+        if ($priority !== 'all') {
+            $this->db->where('schedule_tasks.priority', $priority);
+        }
 
         $rows = $this->db
+            ->order_by("FIELD(schedule_tasks.priority, 'high', 'medium', 'low')", null, false)
             ->order_by('schedule_tasks.task_time', 'ASC')
             ->order_by('schedule_tasks.id', 'DESC')
             ->get()
@@ -183,6 +241,7 @@ class Schedule_model extends CI_Model {
             }
 
             if (
+                $filter_by_selected_user &&
                 $effective_user_id !== $selected_user_id &&
                 (int) $row->assigned_user_id !== $selected_user_id
             ) {
@@ -195,15 +254,21 @@ class Schedule_model extends CI_Model {
             $row->effective_user_name = $effective_user_name;
             $row->delegated_from_user_id = $delegated_from_user_id;
             $row->delegated_user_name = $delegated_user_name;
-            $row->owner_display_name = (int) $row->assigned_user_id === $selected_user_id
-                ? $row->assigned_user
-                : $effective_user_name;
+            $row->owner_display_name = $row->assigned_user;
             $row->delegation_note = !empty($delegated_from_user_id)
-                ? ((int) $row->assigned_user_id === $selected_user_id && !empty($delegated_user_name)
-                    ? 'Delegated to ' . $delegated_user_name
-                    : 'Delegated')
+                ? (!empty($delegated_user_name) ? 'Delegated to ' . $delegated_user_name : 'Delegated')
                 : null;
             $row->log_status = $log ? $log->status : 'pending';
+
+            if (
+                $row->log_status === 'pending'
+                && $date === $today
+                && !empty($row->task_time)
+                && $row->task_time <= $current_time
+            ) {
+                $row->log_status = 'overdue';
+            }
+
             $row->completed_time = $log ? $log->completed_time : null;
 
             $filtered[] = $row;
@@ -291,13 +356,13 @@ class Schedule_model extends CI_Model {
     {
         $this->db
             ->from('task_delegations')
-            ->where('original_user_id', (int) $original_user_id)
-            ->where_in('approval_status', ['pending', 'approved'])
-            ->where('start_date <=', $end_date)
-            ->where('end_date >=', $start_date);
+            ->where('task_delegations.original_user_id', (int) $original_user_id)
+            ->where_in('task_delegations.approval_status', ['pending', 'approved'])
+            ->where('task_delegations.start_date <=', $end_date)
+            ->where('task_delegations.end_date >=', $start_date);
 
         if ($exclude_id !== null) {
-            $this->db->where('id !=', (int) $exclude_id);
+            $this->db->where('task_delegations.id !=', (int) $exclude_id);
         }
 
         return (bool) $this->db->count_all_results();
@@ -306,7 +371,7 @@ class Schedule_model extends CI_Model {
     public function getDelegationById($delegation_id)
     {
         return $this->db
-            ->select('task_delegations.*, original.department_id as original_department_id, original.name as original_user_name, delegated.name as delegated_user_name, creator.name as created_by_name, approver.name as approved_by_name')
+            ->select('task_delegations.*, original.department_id as original_department_id, original.name as original_user_name, original.email as original_user_email, delegated.name as delegated_user_name, delegated.email as delegated_user_email, creator.name as created_by_name, creator.email as created_by_email, approver.name as approved_by_name, approver.email as approved_by_email')
             ->from('task_delegations')
             ->join('users as original', 'original.user_id = task_delegations.original_user_id', 'left')
             ->join('users as delegated', 'delegated.user_id = task_delegations.delegated_user_id', 'left')
@@ -336,21 +401,66 @@ class Schedule_model extends CI_Model {
             ->update('task_delegations', $data);
     }
 
-    public function getDelegationsForUsers(array $original_user_ids)
+    public function deleteDelegation($delegation_id)
     {
-        if (empty($original_user_ids)) {
+        return $this->db
+            ->where('id', (int) $delegation_id)
+            ->delete('task_delegations');
+    }
+
+    public function getDelegationsForUsers(array $user_ids)
+    {
+        if (empty($user_ids)) {
             return [];
         }
 
+        $user_ids = array_unique(array_map('intval', $user_ids));
+
         return $this->db
-            ->select('task_delegations.*, original.name as original_user_name, delegated.name as delegated_user_name, creator.name as created_by_name, approver.name as approved_by_name')
+            ->select('task_delegations.*, original.department_id as original_department_id, original.name as original_user_name, original.email as original_user_email, delegated.name as delegated_user_name, delegated.email as delegated_user_email, creator.name as created_by_name, creator.email as created_by_email, approver.name as approved_by_name, approver.email as approved_by_email')
             ->from('task_delegations')
             ->join('users as original', 'original.user_id = task_delegations.original_user_id', 'left')
             ->join('users as delegated', 'delegated.user_id = task_delegations.delegated_user_id', 'left')
             ->join('users as creator', 'creator.user_id = task_delegations.created_by', 'left')
             ->join('users as approver', 'approver.user_id = task_delegations.approved_by', 'left')
-            ->where_in('task_delegations.original_user_id', array_unique(array_map('intval', $original_user_ids)))
+            ->group_start()
+                ->where_in('task_delegations.original_user_id', $user_ids)
+                ->or_where_in('task_delegations.delegated_user_id', $user_ids)
+            ->group_end()
             ->order_by('task_delegations.start_date', 'DESC')
+            ->get()
+            ->result();
+    }
+
+    public function getPendingDelegationsForApprovalWindow($run_date, $target_start_date)
+    {
+        return $this->db
+            ->select('task_delegations.*, original.department_id as original_department_id, original.name as original_user_name, original.email as original_user_email, delegated.name as delegated_user_name, delegated.email as delegated_user_email, creator.name as created_by_name, creator.email as created_by_email')
+            ->from('task_delegations')
+            ->join('users as original', 'original.user_id = task_delegations.original_user_id', 'left')
+            ->join('users as delegated', 'delegated.user_id = task_delegations.delegated_user_id', 'left')
+            ->join('users as creator', 'creator.user_id = task_delegations.created_by', 'left')
+            ->where('task_delegations.approval_status', 'pending')
+            ->where('task_delegations.start_date <=', $target_start_date)
+            ->where('task_delegations.end_date >=', $run_date)
+            ->order_by('task_delegations.start_date', 'ASC')
+            ->order_by('task_delegations.id', 'ASC')
+            ->get()
+            ->result();
+    }
+
+    public function getApprovedDelegationsStartingOn($date)
+    {
+        return $this->db
+            ->select('task_delegations.*, original.department_id as original_department_id, original.name as original_user_name, original.email as original_user_email, delegated.name as delegated_user_name, delegated.email as delegated_user_email, creator.name as created_by_name, creator.email as created_by_email')
+            ->from('task_delegations')
+            ->join('users as original', 'original.user_id = task_delegations.original_user_id', 'left')
+            ->join('users as delegated', 'delegated.user_id = task_delegations.delegated_user_id', 'left')
+            ->join('users as creator', 'creator.user_id = task_delegations.created_by', 'left')
+            ->where('task_delegations.approval_status', 'approved')
+            ->where('task_delegations.start_date', $date)
+            ->where('task_delegations.end_date >=', $date)
+            ->order_by('task_delegations.id', 'ASC')
             ->get()
             ->result();
     }
@@ -394,6 +504,15 @@ class Schedule_model extends CI_Model {
             ]);
     }
 
+    public function markScheduleNotificationsRead($schedule_task_id, $receiver_id)
+    {
+        return $this->db
+            ->where('schedule_task_id', (int) $schedule_task_id)
+            ->where('receiver_id', (int) $receiver_id)
+            ->where_in('notification_type', ['schedule_reminder', 'schedule_warning', 'schedule_delegation'])
+            ->update('task_messages', ['is_read' => 1]);
+    }
+
     public function createSchedule(array $data)
     {
         return $this->db->insert('schedule_tasks', $data);
@@ -420,8 +539,14 @@ class Schedule_model extends CI_Model {
 
     public function deleteSchedule($schedule_id)
     {
-        return $this->db
-            ->where('id', (int) $schedule_id)
-            ->delete('schedule_tasks');
+        $schedule_id = (int) $schedule_id;
+
+        $this->db->trans_start();
+        $this->db->where('schedule_task_id', $schedule_id)->delete('schedule_task_logs');
+        $this->db->where('schedule_task_id', $schedule_id)->delete('task_messages');
+        $this->db->where('id', $schedule_id)->delete('schedule_tasks');
+        $this->db->trans_complete();
+
+        return $this->db->trans_status() === true;
     }
 }

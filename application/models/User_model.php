@@ -2,6 +2,23 @@
 
 class User_model extends CI_Model
 {
+    private function userQuery()
+    {
+        return $this->db->from('users');
+    }
+
+    private function getUserByField($field, $value, $asArray = false)
+    {
+        $query = $this->userQuery()->where($field, $value)->get();
+
+        return $asArray ? $query->row_array() : $query->row();
+    }
+
+    private function hashPassword($password)
+    {
+        return password_hash($password, PASSWORD_DEFAULT);
+    }
+
     public function getUserByUsername($username)
     {
         return $this->get_user_by_username($username);
@@ -9,16 +26,12 @@ class User_model extends CI_Model
 
     public function username_exists($username)
     {
-        return $this->db->where('user_name', $username)
-            ->get('users')
-            ->num_rows() > 0;
+        return (bool) $this->getUserByField('user_name', $username);
     }
 
     public function email_exists($email)
     {
-        return $this->db->where('email', $email)
-            ->get('users')
-            ->num_rows() > 0;
+        return (bool) $this->getUserByField('email', $email);
     }
 
 
@@ -41,7 +54,7 @@ class User_model extends CI_Model
 
     public function getdata($mail)
     {
-        return $this->db->where('email', $mail)->get('users')->row_array();
+        return $this->getUserByField('email', $mail, true);
     }
 
     public function save_reset_token($email, $token)
@@ -85,7 +98,7 @@ class User_model extends CI_Model
         // update password
         $this->db->where('user_id', $user->user_id);
         $this->db->update('users', [
-            'password'     => password_hash($password, PASSWORD_DEFAULT),
+            'password'     => $this->hashPassword($password),
             'reset_token'  => NULL,
             'token_expiry' => NULL
         ]);
@@ -139,6 +152,82 @@ class User_model extends CI_Model
             ->result_array();
     }
 
+    public function getDepartmentUserIds($department_id, $activeOnly = true)
+    {
+        $department_id = (int) $department_id;
+        if ($department_id <= 0) {
+            return [];
+        }
+
+        $this->db
+            ->select('user_id')
+            ->from('users')
+            ->where('department_id', $department_id);
+
+        if ($activeOnly) {
+            $this->db->where('status', 'Active');
+        }
+
+        $rows = $this->db->order_by('name', 'ASC')->get()->result_array();
+
+        return array_values(array_unique(array_map('intval', array_column($rows, 'user_id'))));
+    }
+
+    public function getAllActiveUserIds()
+    {
+        $rows = $this->db
+            ->select('user_id')
+            ->from('users')
+            ->where('status', 'Active')
+            ->order_by('name', 'ASC')
+            ->get()
+            ->result_array();
+
+        return array_values(array_unique(array_map('intval', array_column($rows, 'user_id'))));
+    }
+
+    public function getVisibleUserIdsForScope($currentUserId, $currentDepartmentId, $currentRoleId)
+    {
+        $currentUserId = (int) $currentUserId;
+        $currentDepartmentId = (int) $currentDepartmentId;
+        $currentRoleId = (int) $currentRoleId;
+
+        if ($currentRoleId === 2) {
+            return $this->getAllActiveUserIds();
+        }
+
+        $departmentUserIds = $this->getDepartmentUserIds($currentDepartmentId);
+        if ($currentUserId > 0 && !in_array($currentUserId, $departmentUserIds, true)) {
+            $departmentUserIds[] = $currentUserId;
+        }
+
+        return array_values(array_unique(array_map('intval', $departmentUserIds)));
+    }
+
+    public function isDepartmentHead($userId, $departmentId = null)
+    {
+        $userId = (int) $userId;
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $this->db
+            ->select('users.user_id')
+            ->from('users')
+            ->join('departments', 'departments.department_id = users.department_id', 'left')
+            ->where('users.user_id', $userId)
+            ->group_start()
+                ->where('users.role_id', 2)
+                ->or_where('departments.department_head_id', $userId)
+            ->group_end();
+
+        if ($departmentId !== null) {
+            $this->db->where('users.department_id', (int) $departmentId);
+        }
+
+        return (bool) $this->db->get()->row_array();
+    }
+
     // Recursive function to get all subordinates (infinite levels)
     public function getAllSubordinates($user_id, &$subordinates = [])
     {
@@ -166,7 +255,7 @@ class User_model extends CI_Model
             return ['status' => false, 'message' => 'Invalid email format.'];
         }
 
-        $existing = $this->db->where('email', $email)->get('users')->row();
+        $existing = $this->getUserByField('email', $email);
         if ($existing) {
             return ['status' => false, 'message' => 'Email already exists.'];
         }

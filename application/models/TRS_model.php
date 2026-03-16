@@ -244,6 +244,7 @@ public function get_user_tickets($user_id, $status = null)
         ->select('
             t.*,
             owner.name AS user_full_name,
+            owner.department_id AS owner_department_id,
             engineer.name AS assigned_engineer_name,
             dept.department_name,
             GROUP_CONCAT(tt.task_title SEPARATOR "||") AS tasks
@@ -277,8 +278,10 @@ public function get_all_tickets($status = null)
         ->select('
             t.*,
             owner.name AS user_full_name,
+            owner.department_id AS owner_department_id,
             engineer.name AS assigned_engineer_name,
-            dept.department_name
+            dept.department_name,
+            GROUP_CONCAT(tt.task_title SEPARATOR "||") AS tasks
         ')
         ->from('tickets t')
 
@@ -290,8 +293,10 @@ public function get_all_tickets($status = null)
 
         // Department (FROM OWNER TABLE)
         ->join('departments dept', 'dept.department_id = owner.department_id', 'left')
+        ->join('ticket_tasks tt', 'tt.ticket_id = t.ticket_id', 'left')
 
-        ->where('t.deleted_at IS NULL');
+        ->where('t.deleted_at IS NULL')
+        ->group_by('t.ticket_id');
 
     if ($status != null) {
         $this->db->where('t.status_id', $status);
@@ -303,35 +308,73 @@ public function get_all_tickets($status = null)
         ->result_array();
 }
 
-public function get_visible_tickets_for_list($role_id, $department_id, $user_id, $status = null)
+public function get_visible_tickets_for_list($role_id, $department_id, $user_id, $status = null, $ticket_scope = 'all_tickets')
 {
-    if ((int) $role_id === 2 && (int) $department_id === 2) {
-        return $this->get_all_tickets($status);
+    $role_id = (int) $role_id;
+    $department_id = (int) $department_id;
+    $user_id = (int) $user_id;
+    $ticket_scope = in_array($ticket_scope, ['all_tickets', 'my_tickets', 'my_accepted'], true)
+        ? $ticket_scope
+        : 'all_tickets';
+
+    $this->db
+        ->select('
+            t.*,
+            owner.name AS user_full_name,
+            owner.department_id AS owner_department_id,
+            engineer.name AS assigned_engineer_name,
+            dept.department_name,
+            GROUP_CONCAT(tt.task_title SEPARATOR "||") AS tasks
+        ')
+        ->from('tickets t')
+        ->join('users owner', 'owner.user_id = t.user_id', 'left')
+        ->join('users engineer', 'engineer.user_id = t.assigned_engineer_id', 'left')
+        ->join('departments dept', 'dept.department_id = owner.department_id', 'left')
+        ->join('ticket_tasks tt', 'tt.ticket_id = t.ticket_id', 'left')
+        ->where('t.deleted_at IS NULL')
+        ->group_by('t.ticket_id');
+
+    if ($status != null) {
+        $this->db->where('t.status_id', $status);
     }
 
-    if ((int) $department_id === 2) {
-        $this->db
-            ->select('
-                t.*,
-                owner.name AS user_full_name,
-                engineer.name AS assigned_engineer_name,
-                dept.department_name
-            ')
-            ->from('tickets t')
-            ->join('users owner', 'owner.user_id = t.user_id', 'left')
-            ->join('users engineer', 'engineer.user_id = t.assigned_engineer_id', 'left')
-            ->join('departments dept', 'dept.department_id = owner.department_id', 'left')
-            ->where('t.deleted_at IS NULL')
-            ->group_start()
-                ->where('t.assigned_engineer_id', (int) $user_id)
+    if ($ticket_scope === 'my_tickets') {
+        $this->db->where('t.user_id', $user_id);
+    } elseif ($ticket_scope === 'my_accepted') {
+        $this->db->where('t.assigned_engineer_id', $user_id);
+
+        if ($status === null) {
+            $this->db->where_in('t.status_id', [2, 3, 4]);
+        }
+    } elseif ($status === null) {
+        $this->db->where('t.status_id', 1);
+    }
+
+    if ($role_id === 2 && $department_id === 2) {
+        return $this->db
+            ->order_by('t.ticket_id', 'DESC')
+            ->get()
+            ->result_array();
+    }
+
+    if ($department_id === 2) {
+        if ($role_id === 1) {
+            $this->db->group_start()
+                ->where('t.user_id', $user_id)
+                ->or_where('t.assigned_engineer_id', $user_id)
                 ->or_group_start()
                     ->where('t.status_id', 1)
                     ->where('t.assigned_engineer_id IS NULL', null, false)
                 ->group_end()
             ->group_end();
-
-        if ($status != null) {
-            $this->db->where('t.status_id', $status);
+        } else {
+            $this->db->group_start()
+                ->where('t.assigned_engineer_id', $user_id)
+                ->or_group_start()
+                    ->where('t.status_id', 1)
+                    ->where('t.assigned_engineer_id IS NULL', null, false)
+                ->group_end()
+            ->group_end();
         }
 
         return $this->db
@@ -340,7 +383,18 @@ public function get_visible_tickets_for_list($role_id, $department_id, $user_id,
             ->result_array();
     }
 
-    return $this->get_user_tickets($user_id, $status);
+    if ($role_id === 2) {
+        return $this->db
+            ->order_by('t.ticket_id', 'DESC')
+            ->get()
+            ->result_array();
+    }
+
+    return $this->db
+        ->where('owner.department_id', $department_id)
+        ->order_by('t.ticket_id', 'DESC')
+        ->get()
+        ->result_array();
 }
 
 
