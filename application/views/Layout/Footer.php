@@ -57,6 +57,7 @@ window.AppConfig = {
     forceLogoutUrl: "<?= base_url('TRS/force_logout') ?>",
     renewUrl: "<?= base_url('TRS/renew') ?>",
     notificationsUrl: "<?= base_url('TRS/get_notifications') ?>",
+    overdueTaskAlertUrl: "<?= base_url('Schedule/ajax_overdue_task_alert') ?>",
     markNotificationReadUrl: "<?= base_url('TRS/mark_notification_read') ?>",
     taskCommentsUrl: "<?= base_url('TRS/load_notification_comments') ?>",
     scheduleUrl: "<?= base_url('Schedule') ?>",
@@ -70,6 +71,21 @@ if (!window.__trsScheduleLoginAlertInit) {
 
     $(function () {
         var config = window.AppConfig || {};
+        var hasScheduleBoard = $('#todayTaskBoardBody').length > 0;
+        var alertTask = function (payload) {
+            if (!payload || !payload.message) {
+                return;
+            }
+            alert(payload.message);
+        };
+
+        if (!hasScheduleBoard && config.overdueTaskAlertUrl) {
+            $.getJSON(config.overdueTaskAlertUrl, function (res) {
+                if (res && res.status === 'success' && res.has_overdue) {
+                    alertTask(res);
+                }
+            });
+        }
 
         if (!config.notificationsUrl || !config.scheduleUrl) {
             return;
@@ -89,15 +105,11 @@ if (!window.__trsScheduleLoginAlertInit) {
                 }
             });
 
-            if (!scheduleNotification) {
+            if (!scheduleNotification || (scheduleNotification.notification_type || '') === 'schedule_warning') {
                 return;
             }
 
             alert(scheduleNotification.message || 'You have a pending schedule task.');
-
-            if (window.location.href.indexOf(config.scheduleUrl) === -1) {
-                window.location.href = config.scheduleUrl;
-            }
         });
     });
 }
@@ -908,24 +920,32 @@ function refreshMainContent(url, $button) {
         url: url,
         type: "GET",
         success: function(response){
+            var $response = $('<div>').append($.parseHTML(response, document, true));
+            var $incomingMainContent = $response.find('#mainContent').first();
 
-            var newContent = $(response).find('#mainContent').html();
-
-            if (!newContent) {
+            if (!$incomingMainContent.length) {
                 window.location.href = url;
                 return;
             }
 
-            $mainContent.html(newContent);
+            $mainContent.replaceWith($incomingMainContent);
+            $mainContent = $('#mainContent');
 
             if (window.history && typeof window.history.replaceState === 'function') {
                 window.history.replaceState({}, '', url);
             }
 
-            initKanbanSortable();
+            if (typeof initKanbanSortable === 'function') {
+                initKanbanSortable();
+            }
             if (window.TRSSectionShell && typeof window.TRSSectionShell.init === 'function') {
                 window.TRSSectionShell.init($mainContent[0]);
             }
+
+            $(window).trigger('trs:main-content-refreshed', [{
+                url: url,
+                $mainContent: $mainContent
+            }]);
         },
         error: function () {
             window.location.href = url;
@@ -1015,6 +1035,18 @@ if(tasks && tasks.length > 0){
                     </span>
                 </div>
 
+                <div class="ticket-timer d-flex flex-wrap align-items-center justify-content-between border rounded bg-light px-3 py-2 mb-3">
+                    <div>
+                        <div class="text-muted small">Timer</div>
+                        <div id="ticketTimerDisplay" class="h5 mb-0">00:00:00</div>
+                        <div id="ticketTimerMeta" class="text-muted small"></div>
+                    </div>
+                    <div class="btn-group btn-group-sm mt-2 mt-sm-0" role="group" aria-label="Ticket timer controls">
+                        <button type="button" class="btn btn-outline-success" id="ticketTimerStart">Start</button>
+                        <button type="button" class="btn btn-outline-secondary" id="ticketTimerPause">Pause</button>
+                    </div>
+                </div>
+
                 <hr>
 
                 <div class="mb-2">
@@ -1058,6 +1090,7 @@ ${tasks_title}
                     `;
 
                     $('#ticketDetailContent').html(html);
+                    loadTicketTimer(currentTicketId);
             /* ---------- RENDER TASKS ---------- */
 
          tasks.forEach(function(task) {
@@ -1197,7 +1230,209 @@ function updateProgressBar(){
 
     $('#taskRatio').text(completed + '/' + total);
     $('#taskCount').text('(' + completed + '/' + total + ')');
+
+    if (currentTicketId) {
+        var ticketCard = $('.ticket-card[data-id="' + currentTicketId + '"]');
+        if (ticketCard.length) {
+            var ratioText = completed + ' / ' + total + ' Completed';
+            var countNode = ticketCard.find('.task-count');
+            if (countNode.length) {
+                countNode.text(ratioText);
+            } else {
+                ticketCard.find('.kanban-card-meta .text-muted').first().text(ratioText);
+            }
+        }
+    }
 }
+
+/* =========================================
+   TICKET TIMER
+========================================= */
+
+var ticketTimerInterval = null;
+var ticketTimerState = null;
+
+function padTimerValue(value) {
+    return value < 10 ? '0' + value : String(value);
+}
+
+function formatTicketTimer(value) {
+    var total = parseInt(value || 0, 10);
+    if (isNaN(total) || total < 0) {
+        total = 0;
+    }
+
+    var hours = Math.floor(total / 3600);
+    var minutes = Math.floor((total % 3600) / 60);
+    var seconds = total % 60;
+
+    return padTimerValue(hours) + ':' + padTimerValue(minutes) + ':' + padTimerValue(seconds);
+}
+
+function updateTicketTimerUI() {
+    var $display = $('#ticketTimerDisplay');
+    var $meta = $('#ticketTimerMeta');
+
+    if (!$display.length) {
+        return;
+    }
+
+    if (!ticketTimerState) {
+        $display.text('00:00:00');
+        $meta.text('');
+        $('#ticketTimerStart, #ticketTimerPause').prop('disabled', true);
+        return;
+    }
+
+    var total = parseInt(ticketTimerState.base_seconds || 0, 10);
+    if (ticketTimerState.is_running && ticketTimerState.client_started_at) {
+        total += Math.max(0, Math.floor((Date.now() - ticketTimerState.client_started_at) / 1000));
+    }
+
+    $display.text(formatTicketTimer(total));
+
+    var metaText = '';
+    if (ticketTimerState.locked) {
+        metaText = 'Timer locked';
+    } else if (ticketTimerState.is_closed) {
+        metaText = 'Closed ticket';
+    } else {
+        metaText = ticketTimerState.is_running ? 'Running' : 'Paused';
+    }
+
+    if (ticketTimerState.expires_at) {
+        metaText += ' - Locks ' + ticketTimerState.expires_at;
+    }
+
+    $meta.text(metaText);
+    $('#ticketTimerStart').prop('disabled', !ticketTimerState.can_start);
+    $('#ticketTimerPause').prop('disabled', !ticketTimerState.can_pause);
+}
+
+function startTicketTimerTicker() {
+    clearInterval(ticketTimerInterval);
+    if (!ticketTimerState || !ticketTimerState.is_running) {
+        return;
+    }
+
+    ticketTimerInterval = setInterval(function () {
+        updateTicketTimerUI();
+    }, 1000);
+}
+
+function stopTicketTimerTicker() {
+    clearInterval(ticketTimerInterval);
+    ticketTimerInterval = null;
+}
+
+function setTicketTimerState(payload) {
+    payload = payload || {};
+
+    var baseSeconds = parseInt(payload.total_seconds || 0, 10);
+    var isRunning = !!payload.is_running;
+
+    ticketTimerState = {
+        base_seconds: baseSeconds,
+        is_running: isRunning,
+        locked: !!payload.locked,
+        is_closed: !!payload.is_closed,
+        can_start: !!payload.can_start,
+        can_pause: !!payload.can_pause,
+        expires_at: payload.expires_at || '',
+        client_started_at: isRunning ? Date.now() : null
+    };
+
+    if (payload.can_start === undefined) {
+        ticketTimerState.can_start = !ticketTimerState.locked && !ticketTimerState.is_closed && !isRunning;
+    }
+
+    if (payload.can_pause === undefined) {
+        ticketTimerState.can_pause = !ticketTimerState.locked && isRunning;
+    }
+
+    updateTicketTimerUI();
+    startTicketTimerTicker();
+}
+
+function loadTicketTimer(ticketId) {
+    stopTicketTimerTicker();
+    ticketTimerState = null;
+    updateTicketTimerUI();
+
+    if (!ticketId) {
+        return;
+    }
+
+    $.ajax({
+        url: base_url + "TRS/timer_ticket_status",
+        type: "GET",
+        dataType: "json",
+        data: { ticket_id: ticketId },
+        success: function (response) {
+            if (!response || response.success !== true) {
+                $('#ticketTimerMeta').text('Timer unavailable');
+                return;
+            }
+            setTicketTimerState(response);
+        },
+        error: function () {
+            $('#ticketTimerMeta').text('Timer unavailable');
+        }
+    });
+}
+
+$(document).on('click', '#ticketTimerStart', function (e) {
+    e.preventDefault();
+    if (!currentTicketId) {
+        return;
+    }
+
+    $.ajax({
+        url: base_url + "TRS/timer_ticket_start",
+        type: "POST",
+        dataType: "json",
+        data: { ticket_id: currentTicketId },
+        success: function (response) {
+            if (!response || response.success !== true) {
+                alert((response && response.message) ? response.message : 'Unable to start timer.');
+                return;
+            }
+            setTicketTimerState(response);
+        },
+        error: function () {
+            alert('Unable to start timer.');
+        }
+    });
+});
+
+$(document).on('click', '#ticketTimerPause', function (e) {
+    e.preventDefault();
+    if (!currentTicketId) {
+        return;
+    }
+
+    $.ajax({
+        url: base_url + "TRS/timer_ticket_pause",
+        type: "POST",
+        dataType: "json",
+        data: { ticket_id: currentTicketId },
+        success: function (response) {
+            if (!response || response.success !== true) {
+                alert((response && response.message) ? response.message : 'Unable to pause timer.');
+                return;
+            }
+            setTicketTimerState(response);
+        },
+        error: function () {
+            alert('Unable to pause timer.');
+        }
+    });
+});
+
+$('#ticketModal').on('hidden.bs.modal', function () {
+    stopTicketTimerTicker();
+    ticketTimerState = null;
+});
 /* =========================================
    TASK CHECKBOX
 ========================================= */
@@ -1638,9 +1873,13 @@ function autoRefreshKanban(){
                 var card = $('.ticket-card[data-id="'+ticket.ticket_id+'"]');
 
                 if(card.length){
-
-                    card.find('.task-count')
-                        .text(ticket.completed + " / " + ticket.total + " Completed");
+                    var ratioText = ticket.completed + " / " + ticket.total + " Completed";
+                    var countNode = card.find('.task-count');
+                    if (countNode.length) {
+                        countNode.text(ratioText);
+                    } else {
+                        card.find('.kanban-card-meta .text-muted').first().text(ratioText);
+                    }
 
                 }
 

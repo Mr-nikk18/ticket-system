@@ -1,0 +1,287 @@
+.asset-page {
+    background:
+        radial-gradient(circle at top right, rgba(27, 127, 98, 0.12), transparent 24%),
+        linear-gradient(180deg, rgba(247, 250, 247, 0.96), rgba(236, 245, 240, 0.96));
+}
+
+.asset-page .content-header h1 {
+    font-size: 1.85rem;
+}
+
+.asset-shell-card {
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(19, 78, 61, 0.1);
+    border-radius: 24px;
+    box-shadow: 0 18px 42px rgba(15, 38, 31, 0.08);
+    padding: 1.5rem;
+}
+
+.asset-shell-card__header {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.asset-shell-card__header h3 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.4rem;
+    margin: 0;
+}
+
+.asset-shell-card__header p {
+    color: #5c6d63;
+    margin: 0.35rem 0 0;
+}
+
+.asset-shell-pill {
+    background: linear-gradient(135deg, #9be15d, #00c48c);
+    border-radius: 999px;
+    color: #0d3b2e;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.42rem 0.85rem;
+    white-space: nowrap;
+}
+
+.asset-note {
+    background: #eefaf3;
+    border: 1px solid rgba(11, 108, 80, 0.18);
+    border-radius: 16px;
+    color: #195541;
+    font-size: 0.92rem;
+    padding: 0.95rem 1rem;
+}
+
+.asset-preview-frame {
+    align-items: center;
+    background:
+        radial-gradient(circle at top, rgba(11, 108, 80, 0.08), transparent 48%),
+        linear-gradient(180deg, rgba(249, 252, 250, 1), rgba(237, 246, 241, 0.95));
+    border: 1px dashed rgba(17, 94, 69, 0.24);
+    border-radius: 22px;
+    display: flex;
+    justify-content: center;
+    min-height: 280px;
+    overflow: hidden;
+    padding: 1rem;
+}
+
+.asset-preview-frame img {
+    border: 1px solid rgba(15, 38, 31, 0.12);
+    border-radius: 18px;
+    max-height: 240px;
+    max-width: 240px;
+    padding: 0.5rem;
+    background: #ffffff;
+}
+
+.asset-preview-serial {
+    color: #173a2c;
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.9rem;
+    text-align: center;
+}
+
+.asset-empty-state {
+    color: #5c6d63;
+    max-width: 320px;
+    text-align: center;
+}
+
+.asset-empty-state--wide {
+    margin: 2rem auto;
+    max-width: 100%;
+}
+
+.asset-import-summary {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 1rem;
+}
+
+.asset-import-summary__item {
+    background: rgba(243, 249, 245, 0.9);
+    border: 1px solid rgba(19, 78, 61, 0.08);
+    border-radius: 18px;
+    padding: 1rem;
+}
+
+.asset-import-summary__label {
+    color: #5c6d63;
+    display: block;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+}
+
+.asset-import-summary__value {
+    color: #173a2c;
+    display: block;
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.asset-import-table-wrap {
+    border: 1px solid rgba(19, 78, 61, 0.09);
+    border-radius: 18px;
+    max-height: 420px;
+    overflow: auto;
+}
+
+.asset-import-table th {
+    background: #f3faf5;
+    position: sticky;
+    top: 0;
+}
+
+.qr-print-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.qr-print-card {
+    background: rgba(248, 252, 249, 0.96);
+    border: 1px solid rgba(19, 78, 61, 0.1);
+    border-radius: 22px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.qr-print-card__toolbar {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+}
+
+.qr-print-select {
+    align-items: center;
+    color: #195541;
+    display: inline-flex;
+    font-size: 0.9rem;
+    font-weight: 600;
+    gap: 0.45rem;
+    margin: 0;
+}
+
+.qr-print-card__serial {
+    color: #173a2c;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 1rem;
+}
+
+.qr-print-card__media {
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid rgba(19, 78, 61, 0.08);
+    border-radius: 18px;
+    display: flex;
+    justify-content: center;
+    min-height: 260px;
+    padding: 0.85rem;
+}
+
+.qr-print-card__media img {
+    max-height: 220px;
+    max-width: 220px;
+}
+
+.user-management-page {
+    background:
+        radial-gradient(circle at top left, rgba(47, 117, 181, 0.12), transparent 24%),
+        linear-gradient(180deg, rgba(247, 250, 255, 0.96), rgba(236, 243, 252, 0.96));
+}
+
+.user-shell-card {
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid rgba(26, 67, 115, 0.09);
+    border-radius: 24px;
+    box-shadow: 0 18px 42px rgba(20, 35, 61, 0.08);
+    padding: 1.5rem;
+}
+
+.user-shell-card__header {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-bottom: 1.2rem;
+}
+
+.user-shell-card__header h3 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.4rem;
+    margin: 0;
+}
+
+.user-shell-card__header p {
+    color: #60708a;
+    margin: 0.35rem 0 0;
+}
+
+.user-shell-pill {
+    background: linear-gradient(135deg, #7cc6ff, #3a86ff);
+    border-radius: 999px;
+    color: #11314e;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.42rem 0.85rem;
+    white-space: nowrap;
+}
+
+.user-status-badge {
+    border-radius: 999px;
+    display: inline-block;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 0.28rem 0.65rem;
+}
+
+.user-status-badge--active {
+    background: rgba(25, 135, 84, 0.12);
+    color: #146c43;
+}
+
+.user-status-badge--inactive {
+    background: rgba(220, 53, 69, 0.12);
+    color: #b02a37;
+}
+
+.user-status-badge--pending {
+    background: rgba(255, 193, 7, 0.16);
+    color: #8b6b00;
+}
+
+@media (max-width: 991.98px) {
+    .asset-import-summary,
+    .qr-print-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .asset-shell-card,
+    .user-shell-card {
+        padding: 1.1rem;
+    }
+
+    .asset-shell-card__header,
+    .user-shell-card__header {
+        flex-direction: column;
+    }
+
+    .qr-print-card__toolbar {
+        flex-direction: column;
+    }
+}

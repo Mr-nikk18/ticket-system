@@ -1,257 +1,126 @@
 <?php
 $this->load->view('Layout/Header');
+
+$totalUsers = count($users);
+$pendingUsers = 0;
+$activeUsers = 0;
+
+foreach ($users as $userRow) {
+    if ((int) ($userRow['is_registered'] ?? 0) === 1 && (string) ($userRow['status'] ?? '') === 'Active') {
+        $activeUsers++;
+    } else {
+        $pendingUsers++;
+    }
+}
 ?>
 
-<!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
-    <!-- Content Header (Page header) -->
+<div class="content-wrapper user-management-page">
     <section class="content-header">
-      <div class="container-fluid">
-        <div class="row mb-2">
-          <div class="col-sm-6">
-            <h1>Developer List</h1>
-           
-          </div>
-          <div class="col-sm-6">
-            
-            <ol class="breadcrumb float-sm-right">
-              <li class="breadcrumb-item"><a href="#">Home</a></li>
-              <li class="breadcrumb-item active">Validation</li>
-            </ol>
-          </div>
+        <div class="container-fluid">
+            <div class="row mb-2 align-items-center">
+                <div class="col-sm-7">
+                    <h1 class="m-0">Manage Users</h1>
+                    <p class="text-muted mb-0">Review account state, department, role, and activation readiness from one page.</p>
+                </div>
+                <div class="col-sm-5 text-sm-right">
+                    <a href="<?= base_url('TRS/add_user') ?>" class="btn btn-primary btn-sm">Add User</a>
+                </div>
+            </div>
         </div>
-      </div><!-- /.container-fluid -->
     </section>
 
-    <!-- Main content -->
-    <section class="content">
-      <div class="container-fluid">
-        <div class="row">
-          <!-- left column -->
-          <div class="col-md-12">
-            <!-- jquery validation -->
-           
-            <div class="card card-primary">
-              <div class="card-header">
-                 <a class=" btn btn-dark float-sm-right" href="javascript:void(0)" data-toggle="modal" data-target="#modal-success">Add Developer/Admin</a>
-                <h3 class="card-title"></h3>
-              </div>
-              <!-- /.card-header -->
-              <!-- form start -->
+    <section class="content pb-4">
+        <div class="container-fluid">
+            <?php if ($this->session->flashdata('failed')): ?>
+                <div class="alert alert-danger"><?= $this->session->flashdata('failed'); ?></div>
+            <?php endif; ?>
 
-<table class="table table-bordered">
-<tr>
-<th>No.</th>
-<th>Name</th>
-<th>Username</th>
-<th>Role</th>
-<th>Status</th>
-<th>Action</th>
-</tr>
-  <?php $n=1; ?>
-<?php foreach ($users as $u) { ?>
+            <?php if ($this->session->flashdata('success')): ?>
+                <div class="alert alert-success"><?= $this->session->flashdata('success'); ?></div>
+            <?php endif; ?>
 
-<tr>
-
-<td><?= $n ?></td>
-<td><?= $u['name'] ?></td>
-<td><?= $u['user_name'] ?></td>
-<td><?= $u['role_id'] == 2 ? 'Developer' : 'IT Head' ?></td>
-<td><?= $u['status'] ?></td>
-<td>
-   <button onclick="editUser(<?= $u['user_id'] ?>)"
- class="btn btn-sm btn-primary mb-1">
- Edit
-</button>
- <br>
-     <a href="<?= base_url('TRS/delete_userlist/'.$u['user_id']) ?>" class="btn btn-sm btn-danger mb-1"  onclick="return confirm('Are you sure you want to delete?');">Delete</a>
-</td>
-
-</tr>
-<?php $n++; ?>
-<?php } ?>
-
-</table>
-
-
-
-
-
-
-      </div>
-            <!-- /.card -->
+            <div class="asset-import-summary mb-4">
+                <div class="asset-import-summary__item">
+                    <span class="asset-import-summary__label">Total Users</span>
+                    <span class="asset-import-summary__value"><?= (int) $totalUsers ?></span>
+                </div>
+                <div class="asset-import-summary__item">
+                    <span class="asset-import-summary__label">Active Accounts</span>
+                    <span class="asset-import-summary__value"><?= (int) $activeUsers ?></span>
+                </div>
+                <div class="asset-import-summary__item">
+                    <span class="asset-import-summary__label">Pending / Inactive</span>
+                    <span class="asset-import-summary__value"><?= (int) $pendingUsers ?></span>
+                </div>
             </div>
-          <!--/.col (left) -->
-          <!-- right column -->
-          <div class="col-md-6">
 
-          </div>
-          <!--/.col (right) -->
+            <div class="user-shell-card">
+                <div class="user-shell-card__header">
+                    <div>
+                        <h3>User Directory</h3>
+                        <p>The updated view uses real database role names and department names instead of the old hard-coded developer/admin assumptions.</p>
+                    </div>
+                    <div class="user-shell-pill">User Admin</div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Department</th>
+                                <th>Role</th>
+                                <th>Works Under</th>
+                                <th>Account State</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($users as $user): ?>
+                                <?php
+                                $isRegistered = (int) ($user['is_registered'] ?? 0) === 1;
+                                $isActive = (string) ($user['status'] ?? '') === 'Active';
+                                ?>
+                                <tr>
+                                    <td>
+                                        <strong><?= htmlspecialchars((string) ($user['name'] ?? '')) ?></strong>
+                                        <div class="text-muted small"><?= htmlspecialchars((string) ($user['phone'] ?? '')) ?></div>
+                                    </td>
+                                    <td><?= htmlspecialchars((string) ($user['user_name'] ?? '')) ?></td>
+                                    <td><?= htmlspecialchars((string) ($user['email'] ?? '')) ?></td>
+                                    <td><?= htmlspecialchars((string) ($user['department_name'] ?? 'Not set')) ?></td>
+                                    <td><?= htmlspecialchars(ucwords(str_replace('_', ' ', (string) ($user['role_name'] ?? 'Not set')))) ?></td>
+                                    <td>
+                                        <?= htmlspecialchars((string) ($user['reports_to_name'] ?? 'Top Level')) ?>
+                                        <?php if (!empty($user['reports_to_email'])): ?>
+                                            <div class="text-muted small"><?= htmlspecialchars((string) $user['reports_to_email']) ?></div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="user-status-badge <?= $isRegistered ? 'user-status-badge--active' : 'user-status-badge--pending' ?>">
+                                            <?= $isRegistered ? 'Registered' : 'Pending Activation' ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="user-status-badge <?= $isActive ? 'user-status-badge--active' : 'user-status-badge--inactive' ?>">
+                                            <?= htmlspecialchars((string) ($user['status'] ?? 'Inactive')) ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="<?= base_url('TRS/edit_userlist/' . (int) $user['user_id']) ?>" class="btn btn-sm btn-outline-primary mb-1">Edit</a>
+                                        <a href="<?= base_url('TRS/delete_userlist/' . (int) $user['user_id']) ?>" class="btn btn-sm btn-outline-danger mb-1" onclick="return confirm('Delete this user?');">Delete</a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-        <!-- /.row -->
-      </div><!-- /.container-fluid -->
     </section>
-    <!-- /.content -->
-  </div>
-  <!-- /.content-wrapper -->
-
-
-
-      <div class="modal fade" id="modal-success">
-        <div class="modal-dialog">
-          <div class="modal-content bg-success">
-            <div class="modal-header">
-              <h4 class="modal-title">Add Developer/Admin</h4>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-        <div class="modal-body">
-<form method="post" id="adduserlist">
-
-<div class="card-body">
-
-<div class="form-group">
-<label>Full Name</label>
-<input type="text" name="name" class="form-control" required>
 </div>
 
-<div class="form-group">
-<label>User Name</label>
-<input type="text" name="user_name" class="form-control" required>
-</div>
-
-<div class="form-group">
-<label>Email</label>
-<input type="email" name="email" class="form-control" required>
-</div>
-
-<div class="form-group">
-<label>Phone</label>
-<input type="text" name="phone" class="form-control">
-</div>
-
-<div class="form-group">
-<label>Company Name</label>
-<input type="text" name="company_name" class="form-control">
-</div>
-
-<div class="form-group">
-<label>Department</label>
-<input type="text" name="department" class="form-control">
-</div>
-
-<div class="form-group">
-<label>Role</label>
-<select name="role_id" class="form-control" required>
-    <option value="2">Developer</option>
-    <option value="3">IT Head</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Password</label>
-<input type="password" name="password" class="form-control" required>
-</div>
-
-</div>
-
-<div class="modal-footer justify-content-between">
-  <button type="button" class="btn btn-outline-light" data-dismiss="modal">Close</button>
-  <button type="submit" class="btn btn-outline-light">Create user</button>
-</div>
-
-</form>
-</div>
-</div>
-          <!-- /.modal-content -->
-        </div>
-        <!-- /.modal-dialog -->
-      </div>
-      <!-- /.modal -->
-
-<!-- EDIT USER MODAL -->
-<div class="modal fade" id="editUserModal">
-  <div class="modal-dialog">
-    <div class="modal-content bg-info">
-
-      <div class="modal-header">
-        <h4 class="modal-title">Edit User</h4>
-        <button type="button" class="close" data-dismiss="modal">
-          <span>&times;</span>
-        </button>
-      </div>
-
-      <div class="modal-body">
-
-        <form id="editUserForm">
-
-          <!-- hidden user id -->
-          <input type="hidden" name="user_id" id="edit_user_id">
-
-          <div class="form-group">
-            <label>Full Name</label>
-            <input type="text" id="edit_name" name="name" class="form-control" required>
-          </div>
-
-          <div class="form-group">
-            <label>User Name</label>
-            <input type="text" id="edit_user_name" name="user_name" class="form-control" required>
-          </div>
-
-          <div class="form-group">
-            <label>Email</label>
-            <input type="email" id="edit_email" name="email" class="form-control" required>
-          </div>
-
-          <div class="form-group">
-            <label>Phone</label>
-            <input type="text" id="edit_phone" name="phone" class="form-control">
-          </div>
-
-          <div class="form-group">
-            <label>Company Name</label>
-            <input type="text" id="edit_company" name="company_name" class="form-control">
-          </div>
-
-          <div class="form-group">
-            <label>Department</label>
-            <input type="text" id="edit_department" name="department" class="form-control">
-          </div>
-
-          <div class="form-group">
-            <label>Role</label>
-            <select id="edit_role_id" name="role_id" class="form-control">
-              <option value="2">Developer</option>
-              <option value="3">IT Head</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>New Password (optional)</label>
-            <input type="password" name="password" class="form-control">
-          </div>
-
-          <div class="modal-footer justify-content-between">
-            <button type="button" class="btn btn-outline-light" data-dismiss="modal">
-              Close
-            </button>
-            <button type="submit" class="btn btn-outline-light">
-              Update User
-            </button>
-          </div>
-
-        </form>
-
-      </div>
-    </div>
-  </div>
-</div>
-<!-- /.EDIT MODAL -->
-
-
-
-
-  <?php 
-$this->load->view('layout/Footer');
-?>
+<?php $this->load->view('Layout/Footer'); ?>

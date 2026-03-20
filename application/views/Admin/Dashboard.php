@@ -14,9 +14,7 @@ $this->load->view('Layout/Header');
           </div><!-- /.col -->
           <div class="col-sm-6">
            <ol class="breadcrumb float-sm-right mr-3 align-items-center">
-    <li class="breadcrumb-item">
-        <a href="#">Home</a>
-    </li>
+   
 
     <li class="ml-2">
         <a href="<?= base_url('index.php/Auth/logout') ?>" 

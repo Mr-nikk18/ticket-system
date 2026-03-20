@@ -74,11 +74,17 @@ class Developer extends MY_Controller
 
     $scopeUserIds = $this->getPerformanceScopeUserIds();
     $currentUserId = $this->getCurrentUserId();
+    $roleId = (int) $this->session->userdata('role_id');
+    $departmentId = (int) $this->session->userdata('department_id');
+    $ticketScope = strtolower(trim((string) $this->input->get('ticket_scope')));
+    $ticketScope = $ticketScope === 'mine' ? 'mine' : 'all';
 
     $developer['selected_year'] = $year;
     $developer['filters'] = $this->Developer_model->getDeveloperPerformanceFilters($year, $scopeUserIds);
     $developer['developer'] = $this->Developer_model->getDeveloperPerformance($year, $scopeUserIds, $currentUserId);
     $developer['overview'] = $this->Developer_model->getDeveloperPerformanceOverview($currentUserId, $year, $scopeUserIds);
+    $developer['ticket_scope'] = $ticketScope;
+    $developer['ticket_overview'] = $this->Ticket_model->getTicketStatusOverview($currentUserId, $roleId, $departmentId, $ticketScope, $year);
     $developer['page_js'] = ['assets/dist/js/pages/developer-performance.js'];
     $this->load->view('Same_pages/developer_performance', $developer);
   }
@@ -96,10 +102,15 @@ class Developer extends MY_Controller
 
     $scopeUserIds = $this->getPerformanceScopeUserIds();
     $currentUserId = $this->getCurrentUserId();
+    $roleId = (int) $this->session->userdata('role_id');
+    $departmentId = (int) $this->session->userdata('department_id');
+    $ticketScope = strtolower(trim((string) $this->input->get('ticket_scope')));
+    $ticketScope = $ticketScope === 'mine' ? 'mine' : 'all';
 
     return $this->outputJson([
       'status' => true,
       'overview' => $this->Developer_model->getDeveloperPerformanceOverview($currentUserId, $year, $scopeUserIds),
+      'ticket_overview' => $this->Ticket_model->getTicketStatusOverview($currentUserId, $roleId, $departmentId, $ticketScope, $year),
       'developers' => $this->Developer_model->getDeveloperPerformance($year, $scopeUserIds, $currentUserId)
     ]);
   }
@@ -166,6 +177,13 @@ class Developer extends MY_Controller
       'overview' => $this->Developer_model->getDeveloperPerformanceOverview($currentUserId, $year, $scopeUserIds),
       'developers' => $this->Developer_model->getDeveloperPerformance($year, $scopeUserIds, $currentUserId),
     ];
+
+    $filename = 'developer-performance-' . $year . '-' . date('Ymd-His') . '.xls';
+    $this->output
+      ->set_header('Content-Type: application/vnd.ms-excel; charset=UTF-8')
+      ->set_header('Content-Disposition: attachment; filename="' . $filename . '"')
+      ->set_header('Pragma: no-cache')
+      ->set_header('Expires: 0');
 
     $this->load->view('Same_pages/developer_performance_report', $data);
   }
@@ -312,6 +330,7 @@ class Developer extends MY_Controller
     }
 
     $latest = $history[0];
+    $latestStatus = !empty($latest['recent_status']) ? strtolower((string) $latest['recent_status']) : 'unknown';
 ?>
 
 
@@ -333,7 +352,7 @@ class Developer extends MY_Controller
         <?= $latest['now_handled_by'] ?: 'Not Assigned' ?>
 
         <?php
-        $status = strtolower($latest['recent_status']);
+        $status = $latestStatus;
 
         switch ($status) {
           case 'open':
@@ -355,7 +374,7 @@ class Developer extends MY_Controller
         ?>
 
         <span class="badge <?= $badge ?> ml-2">
-          <?= ucfirst(str_replace('_', ' ', $latest['recent_status'])) ?>
+          <?= ucfirst(str_replace('_', ' ', $latestStatus)) ?>
 
         </span>
       </h6>
@@ -441,7 +460,7 @@ class Developer extends MY_Controller
             <td><?= $latest['now_handled_by'] ?: 'Not Assigned' ?></td>
             <td>
               <span class="badge <?= $badge ?>">
-                <?= ucfirst($latest['recent_status']) ?>
+                <?= ucfirst(str_replace('_', ' ', $latestStatus)) ?>
               </span>
             </td>
           </tr>
@@ -501,11 +520,12 @@ class Developer extends MY_Controller
     if (!empty($tickets)) {
       $i = 1;
       foreach ($tickets as $t) {
+        $recentStatus = !empty($t['recent_status']) ? (string) $t['recent_status'] : 'unknown';
         $html .= "
               <tr>
                 <td>{$i}</td>
                 <td>{$t['title']}</td>
-   <td>" . ucfirst(str_replace('_', ' ', $t['recent_status'])) . "</td>
+   <td>" . ucfirst(str_replace('_', ' ', $recentStatus)) . "</td>
                 <td>{$t['created_at']}</td>
               </tr>
             ";

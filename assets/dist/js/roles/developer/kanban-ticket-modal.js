@@ -1,12 +1,5 @@
-(function (window, $) {
+﻿(function (window, $) {
     var nativeAlert = window.alert;
-
-    function suppressBoardAlerts() {
-        window.alert = function () {
-            return;
-        };
-    }
-
     function restoreAlert() {
         window.alert = nativeAlert;
     }
@@ -86,9 +79,6 @@
         enhanceSummaryTasks();
         syncTaskCommentVisibility($('#ticketDetailContent'));
     }
-
-    suppressBoardAlerts();
-
     $(document).on('click', '.ticket-card', function () {
         setTimeout(enhanceTicketModal, 250);
     });
@@ -168,3 +158,5 @@
         restoreAlert();
     });
 })(window, jQuery);
+
+

@@ -3,6 +3,22 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Auth extends CI_Controller
 {
+    private function pullPostLoginRedirect()
+    {
+        $redirect = trim((string) $this->session->userdata('post_login_redirect'));
+        $this->session->unset_userdata('post_login_redirect');
+
+        if ($redirect === '') {
+            return '';
+        }
+
+        if (preg_match('#^(?:https?:)?//#i', $redirect)) {
+            return '';
+        }
+
+        return ltrim($redirect, '/');
+    }
+
     private function respondJson(array $payload)
     {
         $this->output
@@ -33,6 +49,14 @@ class Auth extends CI_Controller
         redirect($route);
     }
 
+    private function setRegistrationOldInput($username, $email)
+    {
+        $this->session->set_flashdata('old', [
+            'user_name' => trim((string) $username),
+            'email' => trim((string) $email),
+        ]);
+    }
+
     public function __construct()
     {
         parent::__construct();
@@ -44,7 +68,8 @@ class Auth extends CI_Controller
             $this->session->userdata('is_login') === true &&
             $this->router->fetch_method() === 'index'
         ) {
-            redirect('dashboard');
+            $redirect = $this->pullPostLoginRedirect();
+            redirect($redirect !== '' ? $redirect : 'dashboard');
         }
     }
 
@@ -116,7 +141,8 @@ class Auth extends CI_Controller
             'last_activity' => time()
         ]);
 
-        redirect('dashboard');
+        $redirect = $this->pullPostLoginRedirect();
+        redirect($redirect !== '' ? $redirect : 'dashboard');
     }
 
 
@@ -165,6 +191,10 @@ class Auth extends CI_Controller
         );
 
         if ($this->form_validation->run() == FALSE) {
+            $this->setRegistrationOldInput(
+                $this->input->post('user_name', true),
+                $this->input->post('email', true)
+            );
             $this->redirectWithFlash('failed', validation_errors(), 'register');
             return;
         }
@@ -179,7 +209,21 @@ class Auth extends CI_Controller
             ->row();
 
         if (!$user) {
+            $this->setRegistrationOldInput($username, $email);
             $this->redirectWithFlash('failed', 'Unauthorized or already registered', 'register');
+            return;
+        }
+
+        $usernameOwner = $this->db
+            ->select('user_id')
+            ->from('users')
+            ->where('user_name', $username)
+            ->get()
+            ->row();
+
+        if ($usernameOwner && (int) $usernameOwner->user_id !== (int) $user->user_id) {
+            $this->setRegistrationOldInput($username, $email);
+            $this->redirectWithFlash('failed', 'Username already taken. Please choose another one.', 'register');
             return;
         }
 
@@ -192,7 +236,11 @@ class Auth extends CI_Controller
         ];
 
         $this->db->where('user_id', $user->user_id);
-        $this->db->update('users', $updateData);
+        if (!$this->db->update('users', $updateData)) {
+            $this->setRegistrationOldInput($username, $email);
+            $this->redirectWithFlash('failed', 'Unable to activate account right now. Please try again.', 'register');
+            return;
+        }
 
         $this->redirectWithFlash('success', 'Account activated successfully', 'verify');
     }

@@ -1,6 +1,6 @@
-<?php if (!empty($today_tasks)) { ?>
+﻿<?php if (!empty($today_tasks)) { ?>
     <?php foreach ($today_tasks as $task) { ?>
-        <?php $canCompleteTask = $task->log_status !== 'completed' && (((int) $task->effective_user_id === (int) $current_user_id) || ((int) ($krupal_approver_id ?? 0) === (int) $current_user_id)); ?>
+        <?php $canCompleteTask = $task->log_status !== 'completed' && ((int) $task->effective_user_id === (int) $current_user_id); ?>
         <tr
             data-log-status="<?php echo htmlspecialchars($task->log_status); ?>"
             data-schedule-name="<?php echo htmlspecialchars($task->schedule_name); ?>"
@@ -41,7 +41,7 @@
                         Mark Complete
                     </button>
                 <?php } else { ?>
-                    <span class="schedule-inline-note"><?php echo (int) $task->effective_user_id === (int) $current_user_id ? 'Completed' : 'Read only'; ?></span>
+                    <span class="schedule-inline-note"><?php echo $task->log_status === 'completed' ? 'Completed' : 'Read only'; ?></span>
                 <?php } ?>
             </td>
         </tr>
@@ -51,3 +51,4 @@
         <td colspan="6" class="schedule-empty">No due tasks for the selected filter.</td>
     </tr>
 <?php } ?>
+

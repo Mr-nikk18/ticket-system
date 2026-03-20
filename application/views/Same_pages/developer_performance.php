@@ -4,6 +4,11 @@ $this->load->view('Layout/Header');
 $developers = isset($developer) && is_array($developer) ? $developer : [];
 $filters = isset($filters) && is_array($filters) ? $filters : ['companies' => [], 'departments' => []];
 $overview = isset($overview) && is_array($overview) ? $overview : [];
+$ticketScope = isset($ticket_scope) ? (string) $ticket_scope : 'all';
+$ticketScope = $ticketScope === 'mine' ? 'mine' : 'all';
+$ticketOverview = isset($ticket_overview) && is_array($ticket_overview)
+    ? $ticket_overview
+    : ['open_tickets' => 0, 'in_progress_tickets' => 0, 'resolved_tickets' => 0, 'closed_tickets' => 0, 'total_tickets' => 0];
 $selectedYearValue = isset($selected_year) ? (int) $selected_year : (int) date('Y');
 $fyLabel = 'FY ' . $selectedYearValue . '-' . substr((string) ($selectedYearValue + 1), -2);
 
@@ -64,7 +69,7 @@ $totalCompanies = count($companies);
             <input type="date" id="reportFromDate" class="form-control form-control-sm mr-1" value="<?= date('Y-01-01') ?>" style="width: 160px;">
             <label class="mr-2 mb-0">To</label>
             <input type="date" id="reportToDate" class="form-control form-control-sm mr-2" value="<?= date('Y-m-d') ?>" style="width: 160px;">
-            <button type="button" class="btn btn-light btn-sm" id="btnDeveloperReportPdf">Open PDF Report</button>
+            <button type="button" class="btn btn-light btn-sm" id="btnDeveloperReportPdf">Download Excel Report</button>
           </div>
         </form>
       </div>
@@ -126,12 +131,22 @@ $totalCompanies = count($companies);
 
   <section class="content pb-4">
     <div class="container-fluid">
-      <div class="perf-side-shell">
-        <aside class="perf-side-nav">
+     <div class="perf-side-shell perf-horizontal">
+        <aside class="perf-card-row">
           <div class="perf-side-nav__head">
             <span class="perf-mini-label">Section Navigator</span>
             <h3>Performance Sections</h3>
             <p>Sidebar se section choose karo. Detail aur hierarchy same page par AJAX se load honge.</p>
+          </div>
+
+          <div class="perf-scope-block">
+            <span class="perf-mini-label">Ticket Scope</span>
+            <div class="perf-scope-toggle" id="perfTicketScopeToggle" role="group" aria-label="Ticket Scope">
+              <select id="perfTicketScopeSelect" class="perf-scope-select" aria-label="Ticket Scope">
+                <option value="all" <?= $ticketScope === 'all' ? 'selected' : '' ?>>All</option>
+                <option value="mine" <?= $ticketScope === 'mine' ? 'selected' : '' ?>>Mine</option>
+              </select>
+            </div>
           </div>
 
           <button type="button" class="perf-side-nav-btn is-active" data-target="queue">
@@ -200,6 +215,11 @@ $totalCompanies = count($companies);
                 <div>
                   <span class="perf-mini-label">Team state distribution</span>
                   <h4>Live Ticket Status</h4>
+                  <div class="perf-mini-label mt-1">
+                    Scope <strong id="perfTicketScopeLabel"><?= htmlspecialchars(ucfirst($ticketScope)) ?></strong>
+                    <span class="mx-1">·</span>
+                    Total <strong id="perfTicketTotal"><?= (int) ($ticketOverview['total_tickets'] ?? 0) ?></strong>
+                  </div>
                 </div>
                 <canvas id="perfOverviewStatusChart" height="120"></canvas>
               </div>
@@ -392,6 +412,31 @@ $totalCompanies = count($companies);
     radial-gradient(circle at top left, rgba(217, 164, 65, 0.18), transparent 28%),
     linear-gradient(180deg, #fbf7ef 0%, #f3ece1 100%);
   color: var(--perf-ink);
+  font-size: 0.95rem;
+}
+
+.developer-performance-page h1 {
+  font-size: 2rem;
+}
+
+.developer-performance-page h3 {
+  font-size: 1.2rem;
+}
+
+.developer-performance-page h4 {
+  font-size: 1rem;
+}
+
+.developer-performance-page .perf-mini-label,
+.developer-performance-page .perf-stat-sub,
+.developer-performance-page .perf-dev-role,
+.developer-performance-page .perf-link-label,
+.developer-performance-page .perf-field-label,
+.developer-performance-page .table,
+.developer-performance-page .btn,
+.developer-performance-page .form-control,
+.developer-performance-page .custom-select {
+  font-size: 0.88rem;
 }
 
 .perf-hero {
@@ -498,25 +543,38 @@ $totalCompanies = count($companies);
 }
 
 .perf-side-shell {
-  display: grid;
-  grid-template-columns: 290px minmax(0, 1fr);
-  gap: 1.25rem;
-  align-items: start;
+  display: block;   /* 🔥 sidebar हटाओ */
 }
 
+/* 🔥 TOP CARD ROW */
 .perf-side-nav {
-  position: sticky;
-  top: 1rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  padding: 1rem;
-  min-height: calc(100vh - 7rem);
-  background: linear-gradient(180deg, rgba(33, 28, 20, 0.96), rgba(79, 56, 24, 0.92));
-  border: 1px solid rgba(255, 234, 200, 0.16);
-  border-radius: 28px;
-  box-shadow: 0 22px 54px rgba(31, 22, 13, 0.18);
-  color: #fff4e1;
+  flex-wrap: wrap;
+  gap: 15px;
+
+  position: static;
+  min-height: auto;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* 🔥 HEADER FULL WIDTH */
+.perf-side-nav__head {
+  width: 100%;
+}
+
+/* 🔥 BUTTON CARDS */
+.perf-side-nav-btn {
+  flex: 1;
+  min-width: 250px;
+  width: auto;   /* 🔥 important */
+}
+
+/* 🔥 CURRENT FOCUS */
+.perf-side-context {
+  width: 100%;
 }
 
 .perf-side-nav__head h3 {
@@ -531,15 +589,114 @@ $totalCompanies = count($companies);
   line-height: 1.6;
 }
 
-.perf-side-nav-btn {
+.perf-scope-block {
   width: 100%;
-  border: 1px solid rgba(255, 234, 200, 0.12);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff5e5;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.perf-scope-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(255, 251, 244, 0.28);
+  border: 1px solid rgba(255, 243, 224, 0.25);
+  gap: 6px;
+}
+
+.perf-scope-select {
+  appearance: none;
+  border: 0;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-size: 0.85rem;
+  color: #3b2c1a;
+  background: rgba(255, 251, 244, 0.92);
+  min-width: 120px;
+}
+
+.perf-scope-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+}
+
+.perf-scope-btn {
+  appearance: none;
+  border: 0;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-size: 0.85rem;
+  color: rgba(255, 251, 244, 0.9);
+  background: transparent;
+  transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.perf-scope-btn:hover {
+  background: rgba(255, 251, 244, 0.14);
+  transform: translateY(-1px);
+}
+
+.perf-scope-btn.is-active {
+  background: rgba(255, 251, 244, 0.92);
+  color: #3b2c1a;
+  box-shadow: 0 10px 24px rgba(31, 22, 13, 0.14);
+}
+
+/* 🔥 CARD ROW */
+.perf-side-nav {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  background: none;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* 🔥 BUTTON → CARD */
+.perf-side-nav-btn {
+  flex: 1;
+  min-width: 280px;
+
+  background: rgba(255, 251, 244, 0.95);   /* same as stat card */
+  border: 1px solid rgba(99, 69, 31, 0.1);
+  border-radius: 24px;
+  padding: 18px;
+
+  box-shadow: 0 12px 30px rgba(31, 22, 13, 0.08);
+
   text-align: left;
-  padding: 0.9rem 1rem;
-  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  transition: 0.25s ease;
+}
+
+/* 🔥 HOVER EFFECT */
+.perf-side-nav-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px rgba(31, 22, 13, 0.12);
+}
+
+/* 🔥 ACTIVE CARD (orange like top UI) */
+.perf-side-nav-btn.is-active {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #1f1a13;
+  border: none;
+}
+
+/* 🔥 TITLE */
+.perf-side-nav-btn__title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* 🔥 SUBTEXT */
+.perf-side-nav-btn__meta {
+  font-size: 0.85rem;
+  margin-top: 4px;
+  opacity: 0.7;
 }
 
 .perf-side-nav-btn:hover {
@@ -1132,6 +1289,14 @@ window.DeveloperPerformanceConfig = {
   exportUrl: '<?= base_url('Developer/developer_performance_report') ?>',
   year: <?= $selectedYearValue ?>,
   fyLabel: '<?= htmlspecialchars($fyLabel, ENT_QUOTES) ?>',
+  initialTicketScope: '<?= htmlspecialchars($ticketScope, ENT_QUOTES) ?>',
+  initialTicketOverview: <?= json_encode([
+      'open_tickets' => (int) ($ticketOverview['open_tickets'] ?? 0),
+      'in_progress_tickets' => (int) ($ticketOverview['in_progress_tickets'] ?? 0),
+      'resolved_tickets' => (int) ($ticketOverview['resolved_tickets'] ?? 0),
+      'closed_tickets' => (int) ($ticketOverview['closed_tickets'] ?? 0),
+      'total_tickets' => (int) ($ticketOverview['total_tickets'] ?? 0),
+  ]) ?>,
   initialOverview: <?= json_encode([
       'open_tickets' => (int) ($overview['open_tickets'] ?? 0),
       'in_progress_tickets' => (int) ($overview['in_progress_tickets'] ?? 0),

@@ -2,6 +2,33 @@
 
 class Ticket_model extends CI_Model
 {
+    private function normalizeTableAlias($alias = 't')
+    {
+        $alias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $alias);
+
+        return $alias !== '' ? $alias : 't';
+    }
+
+    private function getRecentClosedVisibilitySql($alias = 't')
+    {
+        $alias = $this->normalizeTableAlias($alias);
+
+        return sprintf(
+            '(%1$s.status_id = 4 AND COALESCE(%1$s.closed_at, %1$s.updated_at, %1$s.created_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY))',
+            $alias
+        );
+    }
+
+    private function applyVisibleTicketStateFilter($alias = 't')
+    {
+        $alias = $this->normalizeTableAlias($alias);
+
+        $this->db->group_start()
+            ->where($alias . '.status_id !=', 4)
+            ->or_where($this->getRecentClosedVisibilitySql($alias), null, false)
+        ->group_end();
+    }
+
     public function TicketHistory($ticket_id = null)
     {
         $this->db
@@ -90,6 +117,91 @@ class Ticket_model extends CI_Model
         ];
     }
 
+    /**
+     * Lightweight status counters for dashboard-like widgets.
+     *
+     * "mine": tickets created by the user OR currently assigned to the user.
+     * "all": department-wide view that matches the board's department logic
+     *        and the 7-day closed visibility rule.
+     */
+    public function getTicketStatusOverview($user_id, $role_id, $department_id, $scope = 'all', $year = null)
+    {
+        $user_id = (int) $user_id;
+        $role_id = (int) $role_id;
+        $department_id = (int) $department_id;
+        $scope = strtolower(trim((string) $scope));
+        $year = ($year === null || $year === '') ? null : (int) $year;
+
+        $this->db->select('
+            SUM(CASE WHEN t.status_id = 1 THEN 1 ELSE 0 END) AS open_tickets,
+            SUM(CASE WHEN t.status_id = 2 THEN 1 ELSE 0 END) AS in_progress_tickets,
+            SUM(CASE WHEN t.status_id = 3 THEN 1 ELSE 0 END) AS resolved_tickets,
+            SUM(CASE WHEN t.status_id = 4 THEN 1 ELSE 0 END) AS closed_tickets
+        ', false);
+
+        $this->db->from('tickets t');
+        $this->db->join('users owner', 'owner.user_id = t.user_id', 'left');
+        $this->db->join('users eng', 'eng.user_id = t.assigned_engineer_id', 'left');
+        $this->db->where('t.deleted_at IS NULL', null, false);
+        if (!empty($year)) {
+            $this->db->where('YEAR(t.created_at)', $year);
+        }
+
+        // Keep in sync with get_board_tickets(): hide closed tickets after 7 days.
+        $this->applyVisibleTicketStateFilter('t');
+
+        if ($scope === 'mine') {
+            $this->db->group_start()
+                ->where('t.user_id', $user_id)
+                ->or_where('t.assigned_engineer_id', $user_id)
+            ->group_end();
+        } else {
+            // Match the visible ticket list logic so dashboard counters line up
+            // with what the user can actually see in the UI.
+            if ($department_id === 2) {
+                if ($role_id === 2) {
+                    // Team board / all view: managers in dept 2 can see all tickets.
+                } elseif ($role_id === 1) {
+                    $this->db->group_start()
+                        ->where('t.user_id', $user_id)
+                        ->or_where('t.assigned_engineer_id', $user_id)
+                        ->or_group_start()
+                            ->where('t.status_id', 1)
+                            ->where('t.assigned_engineer_id IS NULL', null, false)
+                        ->group_end()
+                    ->group_end();
+                } else {
+                    $this->db->group_start()
+                        ->where('t.assigned_engineer_id', $user_id)
+                        ->or_group_start()
+                            ->where('t.status_id', 1)
+                            ->where('t.assigned_engineer_id IS NULL', null, false)
+                        ->group_end()
+                    ->group_end();
+                }
+            } else {
+                $this->db->where('owner.department_id', $department_id);
+            }
+        }
+
+        $row = (array) $this->db->get()->row_array();
+
+        $open = (int) ($row['open_tickets'] ?? 0);
+        $inProgress = (int) ($row['in_progress_tickets'] ?? 0);
+        $resolved = (int) ($row['resolved_tickets'] ?? 0);
+        $closed = (int) ($row['closed_tickets'] ?? 0);
+
+        return [
+            'open_tickets' => $open,
+            'in_progress_tickets' => $inProgress,
+            'resolved_tickets' => $resolved,
+            'closed_tickets' => $closed,
+            'total_tickets' => $open + $inProgress + $resolved + $closed,
+            'scope' => $scope === 'mine' ? 'mine' : 'all',
+            'year' => $year,
+        ];
+    }
+
     public function get_board_tickets()
     {
         $user_id = (int) $this->session->userdata('user_id');
@@ -174,10 +286,7 @@ class Ticket_model extends CI_Model
             }
         }
 
-        $this->db->group_start()
-            ->where('t.status_id !=', 4)
-            ->or_where('(t.status_id = 4 AND t.closed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY))', null, false)
-        ->group_end();
+        $this->applyVisibleTicketStateFilter('t');
 
         $this->db->order_by('ts.display_order', 'ASC');
         $this->db->order_by('t.board_position', 'ASC');

@@ -139,6 +139,63 @@ class TRS extends My_Controller
         echo json_encode($payload);
     }
 
+    private function getTicketClosedReferenceTimestamp($ticket)
+    {
+        if (!is_array($ticket) && !is_object($ticket)) {
+            return false;
+        }
+
+        $statusId = (int) (is_array($ticket) ? ($ticket['status_id'] ?? 0) : ($ticket->status_id ?? 0));
+        if ($statusId !== 4) {
+            return false;
+        }
+
+        $candidates = is_array($ticket)
+            ? [
+                $ticket['closed_at'] ?? null,
+                $ticket['updated_at'] ?? null,
+                $ticket['created_at'] ?? null,
+            ]
+            : [
+                $ticket->closed_at ?? null,
+                $ticket->updated_at ?? null,
+                $ticket->created_at ?? null,
+            ];
+
+        foreach ($candidates as $candidate) {
+            if (empty($candidate)) {
+                continue;
+            }
+
+            $timestamp = strtotime((string) $candidate);
+            if ($timestamp !== false) {
+                return $timestamp;
+            }
+        }
+
+        return false;
+    }
+
+    private function isTicketWithinClosedVisibilityWindow($ticket, $days = 7)
+    {
+        $closedTimestamp = $this->getTicketClosedReferenceTimestamp($ticket);
+        if ($closedTimestamp === false) {
+            return false;
+        }
+
+        return $closedTimestamp >= strtotime('-' . (int) $days . ' days');
+    }
+
+    private function getTicketClosedExpiryTimestamp($ticket, $days = 7)
+    {
+        $closedTimestamp = $this->getTicketClosedReferenceTimestamp($ticket);
+        if ($closedTimestamp === false) {
+            return false;
+        }
+
+        return $closedTimestamp + ((int) $days * 24 * 60 * 60);
+    }
+
     private function canEditTicket(array $ticket, $ticket_id, $department_id)
     {
         if ((int) $department_id === 2) {
@@ -220,6 +277,317 @@ class TRS extends My_Controller
         return $data;
     }
 
+    private function setUserOldInput(array $payload)
+    {
+        $this->session->set_flashdata('old_user', $payload);
+    }
+
+    private function getUserManagementOptions($excludeUserId = null)
+    {
+        $this->load->model('User_model');
+
+        return [
+            'roles' => $this->User_model->get_all_roles(),
+            'departments' => $this->User_model->get_all_departments(),
+            'hierarchy_users' => $this->User_model->get_hierarchy_candidates($excludeUserId),
+        ];
+    }
+
+    private function generateAvailableUsername($seed, $excludeUserId = null)
+    {
+        $this->load->model('User_model');
+
+        $base = preg_replace('/[^a-z0-9]+/i', '.', strtolower(trim((string) $seed)));
+        $base = trim((string) $base, '.');
+
+        if ($base === '') {
+            $base = 'user';
+        }
+
+        $username = $base;
+        $suffix = 1;
+
+        while ($this->User_model->username_exists_except($username, $excludeUserId)) {
+            $suffix++;
+            $username = $base . $suffix;
+        }
+
+        return $username;
+    }
+
+    private function buildManagedUserPayload($userId = null)
+    {
+        $this->load->model('User_model');
+
+        $name = trim((string) $this->input->post('name', true));
+        $email = strtolower(trim((string) $this->input->post('email', true)));
+        $phone = trim((string) $this->input->post('phone', true));
+        $companyName = trim((string) $this->input->post('company_name', true));
+        $departmentId = $this->normalizeNullableInt($this->input->post('department_id'));
+        $roleId = $this->normalizeNullableInt($this->input->post('role_id'));
+        $worksUnderUserId = $this->normalizeNullableInt($this->input->post('works_under_user_id'));
+        $userName = trim((string) $this->input->post('user_name', true));
+        $password = trim((string) $this->input->post('password'));
+        $accountMode = trim((string) $this->input->post('account_mode', true)) === 'active' ? 'active' : 'invite';
+        $requestedStatus = trim((string) $this->input->post('status', true));
+
+        $oldInput = [
+            'name' => $name,
+            'email' => $email,
+            'phone' => $phone,
+            'company_name' => $companyName,
+            'department_id' => $departmentId,
+            'role_id' => $roleId,
+            'works_under_user_id' => $worksUnderUserId,
+            'user_name' => $userName,
+            'account_mode' => $accountMode,
+            'status' => $requestedStatus,
+        ];
+
+        if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'message' => 'A valid name and email are required.', 'old' => $oldInput];
+        }
+
+        if ($departmentId === null || $roleId === null) {
+            return ['success' => false, 'message' => 'Department and role are required.', 'old' => $oldInput];
+        }
+
+        $roleExists = false;
+        foreach ($this->User_model->get_all_roles() as $role) {
+            if ((int) $role['role_id'] === $roleId) {
+                $roleExists = true;
+                break;
+            }
+        }
+
+        if (!$roleExists) {
+            return ['success' => false, 'message' => 'Selected role is invalid.', 'old' => $oldInput];
+        }
+
+        $departmentExists = false;
+        foreach ($this->User_model->get_all_departments() as $department) {
+            if ((int) $department['department_id'] === $departmentId) {
+                $departmentExists = true;
+                break;
+            }
+        }
+
+        if (!$departmentExists) {
+            return ['success' => false, 'message' => 'Selected department is invalid.', 'old' => $oldInput];
+        }
+
+        if ($accountMode === 'active' && $userName === '') {
+            return ['success' => false, 'message' => 'Username is required for active accounts.', 'old' => $oldInput];
+        }
+
+        if ($accountMode === 'invite' && $userName === '') {
+            $userName = $this->generateAvailableUsername($name !== '' ? $name : $email, $userId);
+            $oldInput['user_name'] = $userName;
+        }
+
+        if ($this->User_model->email_exists_except($email, $userId)) {
+            return ['success' => false, 'message' => 'Email already exists.', 'old' => $oldInput];
+        }
+
+        if ($this->User_model->username_exists_except($userName, $userId)) {
+            return ['success' => false, 'message' => 'Username already exists.', 'old' => $oldInput];
+        }
+
+        if ($worksUnderUserId !== null) {
+            if ($userId !== null && (int) $worksUnderUserId === (int) $userId) {
+                return ['success' => false, 'message' => 'A user cannot work under themselves.', 'old' => $oldInput];
+            }
+
+            $managerUser = $this->User_model->get_user_with_meta($worksUnderUserId);
+            if (!$managerUser) {
+                return ['success' => false, 'message' => 'Selected hierarchy owner is invalid.', 'old' => $oldInput];
+            }
+        }
+
+        $department = $this->db
+            ->select('department_head_id')
+            ->from('departments')
+            ->where('department_id', $departmentId)
+            ->get()
+            ->row();
+
+        $reportsTo = $worksUnderUserId !== null
+            ? (int) $worksUnderUserId
+            : (int) ($department->department_head_id ?? 0);
+
+        if ($reportsTo <= 0) {
+            $reportsTo = null;
+        }
+
+        $status = $accountMode === 'invite'
+            ? 'Inactive'
+            : ($requestedStatus === 'Inactive' ? 'Inactive' : 'Active');
+
+        $data = [
+            'name' => $name,
+            'user_name' => $userName,
+            'email' => $email,
+            'phone' => $phone !== '' ? $phone : '0000000000',
+            'company_name' => $companyName !== '' ? $companyName : 'TRS',
+            'department_id' => $departmentId,
+            'role_id' => $roleId,
+            'reports_to' => $reportsTo,
+            'status' => $status,
+            'is_registered' => $accountMode === 'active' ? 1 : 0,
+        ];
+
+        if ($userId === null) {
+            $data['created_by'] = (int) $this->session->userdata('user_id');
+        }
+
+        if ($accountMode === 'active') {
+            if ($userId === null && $password === '') {
+                return ['success' => false, 'message' => 'Password is required for active accounts.', 'old' => $oldInput];
+            }
+
+            if ($password !== '') {
+                $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+            }
+        } else {
+            $data['status'] = 'Inactive';
+            $data['is_registered'] = 0;
+
+            if ($userId === null) {
+                $data['password'] = null;
+            }
+        }
+
+        return ['success' => true, 'data' => $data, 'old' => $oldInput];
+    }
+
+    private function normalizeNullableInt($value)
+    {
+        $value = (int) $value;
+
+        return $value > 0 ? $value : null;
+    }
+
+    private function getSubmittedTasks()
+    {
+        $tasks = $this->input->post('tasks');
+
+        return is_array($tasks) ? $tasks : [];
+    }
+
+    private function buildTicketPayload(array $overrides = [])
+    {
+        $payload = [
+            'user_id' => (int) $this->session->userdata('user_id'),
+            'title' => trim((string) $this->input->post('title', true)),
+            'description' => trim((string) $this->input->post('description', true)),
+            'status_id' => 1,
+            'assignment_due_at' => date('Y-m-d H:i:s', strtotime('+24 hours'))
+        ];
+
+        $asset_id = $this->normalizeNullableInt($this->input->post('asset_id'));
+        $category_id = $this->normalizeNullableInt($this->input->post('category_id'));
+        $priority_id = $this->normalizeNullableInt($this->input->post('priority_id'));
+
+        if ($asset_id !== null) {
+            $payload['asset_id'] = $asset_id;
+        }
+
+        if ($category_id !== null) {
+            $payload['category_id'] = $category_id;
+        }
+
+        if ($priority_id !== null) {
+            $payload['priority_id'] = $priority_id;
+        }
+
+        return array_merge($payload, $overrides);
+    }
+
+    private function validateTicketPayload(array $payload)
+    {
+        if (trim((string) ($payload['title'] ?? '')) === '') {
+            return 'Ticket title is required.';
+        }
+
+        if (trim((string) ($payload['description'] ?? '')) === '') {
+            return 'Ticket description is required.';
+        }
+
+        return '';
+    }
+
+    private function createTicketRecord(array $payload, array $tasks)
+    {
+        $this->load->model('TRS_model');
+
+        $ticket_id = $this->TRS_model->insert_ticket($payload);
+
+        if ($ticket_id) {
+            $this->syncTicketTasks(
+                $ticket_id,
+                $tasks,
+                (int) $this->session->userdata('user_id')
+            );
+        }
+
+        return (int) $ticket_id;
+    }
+
+    private function getAssetRouteKey($assetOrCode)
+    {
+        if (is_object($assetOrCode)) {
+            $serialNumber = trim((string) ($assetOrCode->serial_number ?? ''));
+            if ($serialNumber !== '') {
+                return $serialNumber;
+            }
+
+            return trim((string) ($assetOrCode->qr_code ?? ''));
+        }
+
+        return trim(rawurldecode((string) $assetOrCode));
+    }
+
+    private function getQrTicketFormRoute($assetOrCode, $departmentId = null)
+    {
+        return 'qr-ticket/form/' . rawurlencode($this->getAssetRouteKey($assetOrCode));
+    }
+
+    private function renderTicketCreatePage($asset = null)
+    {
+        $data['asset'] = $asset;
+        $data['default_title'] = $asset
+            ? trim('QR Scan - ' . $asset->asset_name . ' ' . (!empty($asset->serial_number) ? '(' . $asset->serial_number . ')' : ''))
+            : '';
+
+        $this->load->view('Users/Add_ticket', $data);
+    }
+
+    private function resolveQrAssetOrRedirect($routeKey)
+    {
+        $this->load->model('Asset_model');
+
+        $routeKey = trim(rawurldecode((string) $routeKey));
+
+        if ($routeKey === '') {
+            $this->session->set_flashdata('failed', 'QR code is missing.');
+            redirect('dashboard');
+        }
+
+        $departmentId = (int) $this->input->get('department_id', true);
+        $asset = $this->Asset_model->get_by_qr_code($routeKey);
+
+        if (!$asset) {
+            $asset = $this->Asset_model->get_by_serial_number($routeKey, $departmentId > 0 ? $departmentId : null);
+        }
+
+        if (!$asset) {
+            $this->session->set_flashdata('failed', 'This QR code or serial number is not linked to any asset yet.');
+            redirect('dashboard');
+        }
+
+        return $asset;
+    }
+
     /* ================= DASHBOARD ================= */
 
     public function dashboard()
@@ -263,7 +631,9 @@ class TRS extends My_Controller
         if ($answer === 'yes') {
 
             $this->TRS_model->update_ticket($ticket_id, [
-                'status_id' => $this->TRS_model->get_status_id('closed')
+                'status_id' => $this->TRS_model->get_status_id('closed'),
+                'closed_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
             ]);
 
             $this->session->set_flashdata('success', 'Ticket closed successfully');
@@ -344,11 +714,44 @@ class TRS extends My_Controller
 
     public function see()
     {
-        $this->load->view('Users/Add_ticket');
+        $qr_code = trim((string) $this->input->get('qr_code', true));
+        $asset = null;
+
+        if ($qr_code !== '') {
+            $asset = $this->resolveQrAssetOrRedirect($qr_code);
+        }
+
+        $this->renderTicketCreatePage($asset);
+    }
+
+    public function qr_ticket_form($qr_code = '')
+    {
+        $asset = $this->resolveQrAssetOrRedirect($qr_code);
+        $this->renderTicketCreatePage($asset);
     }
 
     public function add()
     {
+        $payload = $this->buildTicketPayload();
+        $validation_error = $this->validateTicketPayload($payload);
+
+        if ($validation_error !== '') {
+            $this->session->set_flashdata('failed', $validation_error);
+            redirect('TRS/list');
+        }
+
+        $ticket_id = $this->createTicketRecord($payload, $this->getSubmittedTasks());
+
+        if ($ticket_id) {
+            $this->notifyTicketCreated($ticket_id);
+            $this->session->set_flashdata('success', 'Ticket added successfully');
+        } else {
+            $this->session->set_flashdata('failed', 'Unable to move forward');
+        }
+
+        redirect('TRS/list');
+        return;
+
         $this->load->model('TRS_model');
 
         $ticket_id = $this->TRS_model->insert_ticket([
@@ -382,8 +785,59 @@ class TRS extends My_Controller
     }
 
 
+    public function add_qr_ticket()
+    {
+        $qr_code = trim((string) $this->input->post('qr_code', true));
+        $asset = $this->resolveQrAssetOrRedirect($qr_code);
+        $payload = $this->buildTicketPayload([
+            'asset_id' => (int) $asset->asset_id
+        ]);
+        $validation_error = $this->validateTicketPayload($payload);
+
+        if ($validation_error !== '') {
+            $this->session->set_flashdata('failed', $validation_error);
+            redirect($this->getQrTicketFormRoute($asset, (int) ($asset->department_id ?? $asset->effective_department_id ?? 0)));
+        }
+
+        $ticket_id = $this->createTicketRecord($payload, $this->getSubmittedTasks());
+
+        if ($ticket_id) {
+            $this->notifyTicketCreated($ticket_id);
+            $this->session->set_flashdata('success', 'QR scanned ticket raised successfully.');
+            redirect('TRS/list');
+        }
+
+        $this->session->set_flashdata('failed', 'Unable to move forward');
+        redirect($this->getQrTicketFormRoute($asset, (int) ($asset->department_id ?? $asset->effective_department_id ?? 0)));
+    }
+
     public function add_ajax()
     {
+        $payload = $this->buildTicketPayload();
+        $validation_error = $this->validateTicketPayload($payload);
+
+        if ($validation_error !== '') {
+            return $this->respondJson([
+                'status' => false,
+                'msg' => $validation_error
+            ]);
+        }
+
+        $ticket_id = $this->createTicketRecord($payload, $this->getSubmittedTasks());
+
+        if (!$ticket_id) {
+            return $this->respondJson([
+                'status' => false,
+                'msg' => 'Unable to move forward'
+            ]);
+        }
+
+        $this->session->set_flashdata('success', 'Ticket added successfully');
+        $this->notifyTicketCreated($ticket_id);
+
+        $this->respondJson(['status' => true]);
+        return;
+
         $this->load->model('TRS_model');
 
         // 1️⃣ Insert Ticket
@@ -1038,6 +1492,119 @@ class TRS extends My_Controller
         }
     }
 
+    public function add_user_portal()
+    {
+        $this->ensureRoleAccess([2]);
+
+        $data = $this->getUserManagementOptions();
+        $data['old_user'] = (array) $this->session->flashdata('old_user');
+
+        $this->setPageAssets(['assets/dist/css/pages/assets.css']);
+        $this->render('Users/Add_user', $data);
+    }
+
+    public function save_user_portal()
+    {
+        $this->ensureRoleAccess([2]);
+        $result = $this->buildManagedUserPayload();
+
+        if (empty($result['success'])) {
+            $this->setUserOldInput((array) ($result['old'] ?? []));
+            $this->session->set_flashdata('failed', (string) ($result['message'] ?? 'Unable to create user.'));
+            redirect('TRS/add_user');
+        }
+
+        $this->load->model('User_model');
+        if (!$this->User_model->insert_user($result['data'])) {
+            $this->setUserOldInput((array) ($result['old'] ?? []));
+            $this->session->set_flashdata('failed', 'Unable to create user right now.');
+            redirect('TRS/add_user');
+        }
+
+        $mode = ((int) ($result['data']['is_registered'] ?? 0) === 1) ? 'active account' : 'pending activation user';
+        $this->session->set_flashdata('success', 'User created successfully as a ' . $mode . '.');
+        redirect('TRS/user_list');
+    }
+
+    public function user_list_portal()
+    {
+        $this->ensureRoleAccess([2]);
+
+        $this->load->model('User_model');
+        $data['users'] = $this->User_model->get_all_users_with_meta();
+
+        $this->setPageAssets(['assets/dist/css/pages/assets.css']);
+        $this->render('Users/User_list', $data);
+    }
+
+    public function edit_user_portal($user_id)
+    {
+        $this->ensureRoleAccess([2]);
+
+        $this->load->model('User_model');
+        $data['user'] = $this->User_model->get_user_with_meta($user_id);
+
+        if (!$data['user']) {
+            show_error('User not found', 404);
+        }
+
+        $oldUser = (array) $this->session->flashdata('old_user');
+        if (!empty($oldUser)) {
+            $data['user'] = array_merge($data['user'], $oldUser);
+        }
+
+        $data = array_merge($data, $this->getUserManagementOptions((int) $user_id));
+
+        $this->setPageAssets(['assets/dist/css/pages/assets.css']);
+        $this->render('Users/Edit_userlist', $data);
+    }
+
+    public function update_user_portal($user_id)
+    {
+        $this->ensureRoleAccess([2]);
+
+        if (!(int) $user_id) {
+            show_error('Invalid User ID');
+        }
+
+        $this->load->model('User_model');
+        $result = $this->buildManagedUserPayload((int) $user_id);
+
+        if (empty($result['success'])) {
+            $this->setUserOldInput((array) ($result['old'] ?? []));
+            $this->session->set_flashdata('failed', (string) ($result['message'] ?? 'Unable to update user.'));
+            redirect('TRS/edit_userlist/' . (int) $user_id);
+        }
+
+        if (!$this->User_model->update_user_stuff($user_id, $result['data'])) {
+            $this->setUserOldInput((array) ($result['old'] ?? []));
+            $this->session->set_flashdata('failed', 'Unable to update user right now.');
+            redirect('TRS/edit_userlist/' . (int) $user_id);
+        }
+
+        $this->session->set_flashdata('success', 'User updated successfully.');
+        redirect('TRS/user_list');
+    }
+
+    public function delete_user_portal($user_id)
+    {
+        $this->ensureRoleAccess([2]);
+
+        if ((int) $user_id === (int) $this->session->userdata('user_id')) {
+            $this->session->set_flashdata('failed', 'You cannot delete your own account.');
+            redirect('TRS/user_list');
+        }
+
+        $this->load->model('User_model');
+        if ($this->User_model->delete_user($user_id)) {
+            $this->session->set_flashdata('success', 'User deleted successfully.');
+        } else {
+            $this->session->set_flashdata('failed', 'Unable to delete user right now.');
+        }
+
+        redirect('TRS/user_list');
+    }
+
 
     public function ticket()
     {
@@ -1264,8 +1831,8 @@ public function board()
         $current_department_id = (int) $this->session->userdata('department_id');
         $ticket_id = (int) $this->input->post('ticket_id');
 
-        if ($current_role_id !== 1 || $current_department_id === 2 || $ticket_id <= 0) {
-            echo json_encode(['status' => false, 'message' => 'Unauthorized reopen request.']);
+        if ($ticket_id <= 0) {
+            echo json_encode(['status' => false, 'message' => 'Invalid ticket.']);
             return;
         }
 
@@ -1275,7 +1842,47 @@ public function board()
             ->get('tickets')
             ->row();
 
-        if (!$ticket || (int) $ticket->user_id !== $current_user_id || (int) $ticket->status_id !== 4) {
+        if (!$ticket || (int) $ticket->status_id !== 4) {
+            echo json_encode(['status' => false, 'message' => 'Only closed tickets can be reopened.']);
+            return;
+        }
+
+        $closedAtOk = $this->isTicketWithinClosedVisibilityWindow($ticket);
+        if (!$closedAtOk) {
+            echo json_encode(['status' => false, 'message' => 'This ticket can no longer be reopened (closed more than 7 days ago).']);
+            return;
+        }
+
+        // Dept 2 (IT): allow IT Head to reopen to Open while keeping the same assignee.
+        if ($current_department_id === 2 && $current_role_id === 2) {
+            $this->load->model('TRS_model');
+
+            $this->TRS_model->update_ticket($ticket_id, [
+                'status_id' => 1,
+                'closed_at' => null,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            $this->TRS_model->insert_assignment_history([
+                'ticket_id' => $ticket_id,
+                'action_type' => 'reopen',
+                'assigned_to' => $ticket->assigned_engineer_id,
+                'assigned_by' => $current_user_id,
+                'remarks' => 'Ticket reopened from Closed to Open (kept assignee)',
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            echo json_encode(['status' => true]);
+            return;
+        }
+
+        // Non-IT flow: only the ticket raiser can reopen.
+        if ($current_role_id !== 1 || $current_department_id === 2) {
+            echo json_encode(['status' => false, 'message' => 'Unauthorized reopen request.']);
+            return;
+        }
+
+        if ((int) $ticket->user_id !== $current_user_id) {
             echo json_encode(['status' => false, 'message' => 'Only the ticket raiser can reopen a closed ticket.']);
             return;
         }
@@ -1283,7 +1890,7 @@ public function board()
         $this->db->where('ticket_id', $ticket_id);
         $this->db->update('tickets', [
             'status_id' => 2,
-            'closed_at' => NULL
+            'closed_at' => null,
         ]);
 
         echo json_encode(['status' => true]);
@@ -1597,14 +2204,158 @@ public function board()
         ]);
 
         $pending = $this->db
-            ->where('ticket_id', $task->ticket_id)
+            ->where('ticket_id', (int) ($task['ticket_id'] ?? 0))
             ->where('is_completed', 0)
             ->count_all_results('ticket_tasks');
 
         $this->respondJson([
             'success' => true,
-            'ticket_id' => $task->ticket_id,
+            'ticket_id' => (int) ($task['ticket_id'] ?? 0),
             'can_resolve' => $pending == 0 ? 1 : 0
+        ]);
+    }
+
+    public function timer_ticket_status()
+    {
+        $ticket_id = (int) $this->input->get('ticket_id');
+        if ($ticket_id <= 0) {
+            $this->respondJson(['success' => false, 'message' => 'Invalid ticket.']);
+            return;
+        }
+
+        $this->load->model('Ticket_model');
+        $this->load->model('Timer_model');
+
+        $ticket = $this->Ticket_model->get_ticket_by_id($ticket_id);
+        if (!$ticket || !$this->canViewTicketTasks($ticket)) {
+            $this->respondJson(['success' => false, 'message' => 'Unauthorized.']);
+            return;
+        }
+
+        $isClosed = ((int) $ticket->status_id === 4);
+        $expired = false;
+        $expiresAt = null;
+
+        $expiresAtTimestamp = $this->getTicketClosedExpiryTimestamp($ticket);
+        if ($expiresAtTimestamp !== false) {
+            $expiresAt = date('Y-m-d H:i', $expiresAtTimestamp);
+            $expired = time() >= $expiresAtTimestamp;
+        }
+
+        $timer = $this->Timer_model->getTicketTimer($ticket_id);
+
+        if ($expired) {
+            $timer = $this->Timer_model->stopTicketTimerPermanently($ticket_id, (int) $this->session->userdata('user_id'));
+        }
+
+        $locked = $expired || (!empty($timer['stopped_permanently_at']));
+        $isRunning = !empty($timer['is_running']);
+        $totalSeconds = $this->Timer_model->getTicketTimerTotalSeconds($timer);
+
+        $this->respondJson([
+            'success' => true,
+            'ticket_id' => $ticket_id,
+            'total_seconds' => $totalSeconds,
+            'is_running' => $isRunning ? 1 : 0,
+            'locked' => $locked ? 1 : 0,
+            'is_closed' => $isClosed ? 1 : 0,
+            'expires_at' => $expiresAt,
+            'can_start' => (!$locked && !$isClosed),
+            'can_pause' => (!$locked && $isRunning)
+        ]);
+    }
+
+    public function timer_ticket_start()
+    {
+        $ticket_id = (int) $this->input->post('ticket_id');
+        if ($ticket_id <= 0) {
+            $this->respondJson(['success' => false, 'message' => 'Invalid ticket.']);
+            return;
+        }
+
+        $this->load->model('Ticket_model');
+        $this->load->model('Timer_model');
+
+        $ticket = $this->Ticket_model->get_ticket_by_id($ticket_id);
+        if (!$ticket || !$this->canViewTicketTasks($ticket)) {
+            $this->respondJson(['success' => false, 'message' => 'Unauthorized.']);
+            return;
+        }
+
+        if ((int) $ticket->status_id === 4) {
+            $this->respondJson(['success' => false, 'message' => 'Closed tickets cannot start the timer.']);
+            return;
+        }
+
+        $expiresAtTimestamp = $this->getTicketClosedExpiryTimestamp($ticket);
+        if ($expiresAtTimestamp !== false && time() >= $expiresAtTimestamp) {
+            $this->Timer_model->stopTicketTimerPermanently($ticket_id, (int) $this->session->userdata('user_id'));
+            $this->respondJson(['success' => false, 'message' => 'Timer locked for this ticket.']);
+            return;
+        }
+
+        $timer = $this->Timer_model->getTicketTimer($ticket_id);
+        if (!empty($timer['stopped_permanently_at'])) {
+            $this->respondJson(['success' => false, 'message' => 'Timer locked for this ticket.']);
+            return;
+        }
+
+        $timer = $this->Timer_model->startTicketTimer($ticket_id, (int) $this->session->userdata('user_id'));
+        $totalSeconds = $this->Timer_model->getTicketTimerTotalSeconds($timer);
+
+        $this->respondJson([
+            'success' => true,
+            'ticket_id' => $ticket_id,
+            'total_seconds' => $totalSeconds,
+            'is_running' => 1,
+            'locked' => 0,
+            'is_closed' => 0,
+            'can_start' => 0,
+            'can_pause' => 1
+        ]);
+    }
+
+    public function timer_ticket_pause()
+    {
+        $ticket_id = (int) $this->input->post('ticket_id');
+        if ($ticket_id <= 0) {
+            $this->respondJson(['success' => false, 'message' => 'Invalid ticket.']);
+            return;
+        }
+
+        $this->load->model('Ticket_model');
+        $this->load->model('Timer_model');
+
+        $ticket = $this->Ticket_model->get_ticket_by_id($ticket_id);
+        if (!$ticket || !$this->canViewTicketTasks($ticket)) {
+            $this->respondJson(['success' => false, 'message' => 'Unauthorized.']);
+            return;
+        }
+
+        $expiresAtTimestamp = $this->getTicketClosedExpiryTimestamp($ticket);
+        if ($expiresAtTimestamp !== false && time() >= $expiresAtTimestamp) {
+            $this->Timer_model->stopTicketTimerPermanently($ticket_id, (int) $this->session->userdata('user_id'));
+            $this->respondJson(['success' => false, 'message' => 'Timer locked for this ticket.']);
+            return;
+        }
+
+        $timer = $this->Timer_model->pauseTicketTimer($ticket_id, (int) $this->session->userdata('user_id'));
+        if (!$timer) {
+            $this->respondJson(['success' => false, 'message' => 'Timer not found.']);
+            return;
+        }
+
+        $totalSeconds = $this->Timer_model->getTicketTimerTotalSeconds($timer);
+
+        $this->respondJson([
+            'success' => true,
+            'ticket_id' => $ticket_id,
+            'total_seconds' => $totalSeconds,
+            'is_running' => 0,
+            'locked' => !empty($timer['stopped_permanently_at']) ? 1 : 0,
+            'is_closed' => ((int) $ticket->status_id === 4) ? 1 : 0,
+            'can_start' => ((int) $ticket->status_id !== 4) && empty($timer['stopped_permanently_at']),
+            'can_pause' => 0
         ]);
     }
 

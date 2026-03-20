@@ -1,4 +1,4 @@
-(function (window, $) {
+﻿(function (window, $) {
     var nativeAlert = window.alert;
     var taskAccess = {
         canManage: true
@@ -29,13 +29,6 @@
 
         $('#ticketDetailContent .task-checkbox').prop('disabled', true);
     }
-
-    function suppressAlerts() {
-        window.alert = function () {
-            return;
-        };
-    }
-
     function blockIfReadonly(event) {
         if (taskAccess.canManage) {
             return;
@@ -70,10 +63,11 @@
 
         event.stopImmediatePropagation();
     });
-
-    suppressAlerts();
-
     $(window).on('unload', function () {
         window.alert = nativeAlert;
     });
 })(window, jQuery);
+
+
+
+

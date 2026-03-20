@@ -125,7 +125,7 @@ $delegationApprovalCaption = !empty($delegation_approval_caption) ? $delegation_
                                 </tr>
                             </thead>
                             <tbody id="todayTaskBoardBody">
-                                <?php $this->load->view('Schedule/partials/today_task_rows', ['today_tasks' => $today_tasks, 'current_user_id' => $current_user_id, 'krupal_approver_id' => $krupal_approver_id]); ?>
+                                <?php $this->load->view('Schedule/today_task_rows_timer', ['today_tasks' => $today_tasks, 'current_user_id' => $current_user_id, 'krupal_approver_id' => $krupal_approver_id]); ?>
                             </tbody>
                         </table>
                     </div>

@@ -796,7 +796,7 @@ class Schedule extends MY_Controller {
         $data['current_user_id'] = $user_id;
         $data['krupal_approver_id'] = $this->getKrupalApproverId();
 
-        $html = $this->load->view('Schedule/partials/today_task_rows', $data, true);
+        $html = $this->load->view('Schedule/today_task_rows_timer', $data, true);
 
         $status_counts = ['completed' => 0, 'pending' => 0, 'overdue' => 0];
         foreach ($data['today_tasks'] as $task) {
@@ -812,6 +812,95 @@ class Schedule extends MY_Controller {
             'html' => $html,
             'status_counts' => $status_counts,
         ]);
+    }
+
+    public function ajax_overdue_task_alert()
+    {
+        $this->syncDelegationsForCurrentRequest();
+
+        $user_id = $this->getCurrentUserId();
+        if ($user_id <= 0) {
+            echo json_encode([
+                'status' => 'error',
+                'has_overdue' => false,
+                'message' => 'Unauthorized',
+            ]);
+            return;
+        }
+
+        $tasks = $this->Schedule_model->getTodayTasksForScope(
+            $user_id,
+            $this->getViewScopeUserIds(),
+            0,
+            date('Y-m-d'),
+            $this->getScheduleDepartmentFilterId(),
+            'today',
+            'all'
+        );
+
+        $overdueTask = null;
+        foreach ($tasks as $task) {
+            if (
+                strtolower((string) ($task->log_status ?? 'pending')) === 'overdue'
+                && (int) ($task->effective_user_id ?? 0) === $user_id
+            ) {
+                $overdueTask = $task;
+                break;
+            }
+        }
+
+        if (!$overdueTask) {
+            echo json_encode([
+                'status' => 'success',
+                'has_overdue' => false,
+            ]);
+            return;
+        }
+
+        $taskTimeLabel = !empty($overdueTask->task_time)
+            ? date('h:i A', strtotime($overdueTask->task_time))
+            : '-';
+
+        $message = (string) ($overdueTask->schedule_name ?? 'This task') . ' is overdue';
+        if ($taskTimeLabel !== '-') {
+            $message .= ' (due ' . $taskTimeLabel . ')';
+        }
+        $message .= '. Please complete this task.';
+
+        echo json_encode([
+            'status' => 'success',
+            'has_overdue' => true,
+            'task_id' => (int) ($overdueTask->id ?? 0),
+            'schedule_name' => (string) ($overdueTask->schedule_name ?? ''),
+            'task_time' => $taskTimeLabel,
+            'message' => $message,
+        ]);
+    }
+
+    private function getTimerScheduleTask($schedule_task_id, $date)
+    {
+        $this->syncDelegationsForCurrentRequest();
+
+        $user_id = $this->getCurrentUserId();
+        $scope_user_ids = $this->getViewScopeUserIds();
+
+        $tasks = $this->Schedule_model->getTodayTasksForScope(
+            $user_id,
+            $scope_user_ids,
+            0,
+            $date,
+            $this->getScheduleDepartmentFilterId(),
+            'all',
+            'all'
+        );
+
+        foreach ($tasks as $task) {
+            if ((int) $task->id === (int) $schedule_task_id) {
+                return $task;
+            }
+        }
+
+        return null;
     }
 
     public function ajax_get_user_schedule_tasks()
@@ -1353,8 +1442,8 @@ class Schedule extends MY_Controller {
             return;
         }
 
-        if ((int) $target->effective_user_id !== $this->getCurrentUserId() && $this->getCurrentUserId() !== $this->getKrupalApproverId()) {
-            echo json_encode(['status' => 'error', 'message' => 'Only the task owner or Krupal sir can complete this task.']);
+        if ((int) $target->effective_user_id !== $this->getCurrentUserId()) {
+            echo json_encode(['status' => 'error', 'message' => 'Only the assigned user can complete this task.']);
             return;
         }
 
@@ -1368,11 +1457,171 @@ class Schedule extends MY_Controller {
 
         if ($ok) {
             $this->Schedule_model->markScheduleNotificationsRead($schedule_task_id, $this->getCurrentUserId());
+            $this->load->model('Timer_model');
+            $this->Timer_model->stopScheduleTaskTimer($schedule_task_id, $date, $this->getCurrentUserId());
         }
 
         echo json_encode([
             'status' => $ok ? 'success' : 'error',
             'message' => $ok ? 'Task marked completed.' : 'Unable to update task.'
+        ]);
+    }
+
+    public function timer_task_status()
+    {
+        $schedule_task_id = (int) $this->input->get('schedule_task_id');
+        $date = $this->input->get('execution_date', true) ?: date('Y-m-d');
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            $date = date('Y-m-d');
+        }
+
+        if ($schedule_task_id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid task.']);
+            return;
+        }
+
+        $this->load->model('Timer_model');
+
+        $target = $this->getTimerScheduleTask($schedule_task_id, $date);
+        if (!$target) {
+            echo json_encode(['success' => false, 'message' => 'Task not found.']);
+            return;
+        }
+
+        if (strtolower((string) ($target->frequency ?? '')) !== 'once') {
+            echo json_encode(['success' => false, 'message' => 'Timer is available only for once schedules.']);
+            return;
+        }
+
+        $canControl = ((int) $target->effective_user_id === $this->getCurrentUserId());
+        $locked = ($target->log_status === 'completed');
+
+        if ($locked) {
+            $this->Timer_model->stopScheduleTaskTimer($schedule_task_id, $date, $this->getCurrentUserId());
+        }
+
+        $timer = $this->Timer_model->getScheduleTaskTimer($schedule_task_id, $date);
+        $isRunning = !empty($timer['is_running']);
+        $totalSeconds = $this->Timer_model->getScheduleTaskTimerTotalSeconds($timer);
+
+        echo json_encode([
+            'success' => true,
+            'schedule_task_id' => $schedule_task_id,
+            'total_seconds' => $totalSeconds,
+            'is_running' => $isRunning ? 1 : 0,
+            'locked' => $locked ? 1 : 0,
+            'can_start' => ($canControl && !$locked && !$isRunning),
+            'can_pause' => ($canControl && !$locked && $isRunning)
+        ]);
+    }
+
+    public function timer_task_start()
+    {
+        $schedule_task_id = (int) $this->input->post('schedule_task_id');
+        $date = $this->input->post('execution_date', true) ?: date('Y-m-d');
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            $date = date('Y-m-d');
+        }
+
+        if ($schedule_task_id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid task.']);
+            return;
+        }
+
+        $this->load->model('Timer_model');
+
+        $target = $this->getTimerScheduleTask($schedule_task_id, $date);
+        if (!$target) {
+            echo json_encode(['success' => false, 'message' => 'Task not found.']);
+            return;
+        }
+
+        if (strtolower((string) ($target->frequency ?? '')) !== 'once') {
+            echo json_encode(['success' => false, 'message' => 'Timer is available only for once schedules.']);
+            return;
+        }
+
+        if ((int) $target->effective_user_id !== $this->getCurrentUserId()) {
+            echo json_encode(['success' => false, 'message' => 'Only the assigned user can start this timer.']);
+            return;
+        }
+
+        if ($target->log_status === 'completed') {
+            $this->Timer_model->stopScheduleTaskTimer($schedule_task_id, $date, $this->getCurrentUserId());
+            echo json_encode(['success' => false, 'message' => 'Completed tasks cannot be timed.']);
+            return;
+        }
+
+        $timer = $this->Timer_model->startScheduleTaskTimer($schedule_task_id, $date, $this->getCurrentUserId());
+        $totalSeconds = $this->Timer_model->getScheduleTaskTimerTotalSeconds($timer);
+
+        echo json_encode([
+            'success' => true,
+            'schedule_task_id' => $schedule_task_id,
+            'total_seconds' => $totalSeconds,
+            'is_running' => 1,
+            'locked' => 0,
+            'can_start' => 0,
+            'can_pause' => 1
+        ]);
+    }
+
+    public function timer_task_pause()
+    {
+        $schedule_task_id = (int) $this->input->post('schedule_task_id');
+        $date = $this->input->post('execution_date', true) ?: date('Y-m-d');
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            $date = date('Y-m-d');
+        }
+
+        if ($schedule_task_id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid task.']);
+            return;
+        }
+
+        $this->load->model('Timer_model');
+
+        $target = $this->getTimerScheduleTask($schedule_task_id, $date);
+        if (!$target) {
+            echo json_encode(['success' => false, 'message' => 'Task not found.']);
+            return;
+        }
+
+        if (strtolower((string) ($target->frequency ?? '')) !== 'once') {
+            echo json_encode(['success' => false, 'message' => 'Timer is available only for once schedules.']);
+            return;
+        }
+
+        if ((int) $target->effective_user_id !== $this->getCurrentUserId()) {
+            echo json_encode(['success' => false, 'message' => 'Only the assigned user can pause this timer.']);
+            return;
+        }
+
+        if ($target->log_status === 'completed') {
+            $this->Timer_model->stopScheduleTaskTimer($schedule_task_id, $date, $this->getCurrentUserId());
+            echo json_encode(['success' => false, 'message' => 'Completed tasks cannot be timed.']);
+            return;
+        }
+
+        $timer = $this->Timer_model->pauseScheduleTaskTimer($schedule_task_id, $date, $this->getCurrentUserId());
+        if (!$timer) {
+            echo json_encode(['success' => false, 'message' => 'Timer not found.']);
+            return;
+        }
+
+        $totalSeconds = $this->Timer_model->getScheduleTaskTimerTotalSeconds($timer);
+
+        echo json_encode([
+            'success' => true,
+            'schedule_task_id' => $schedule_task_id,
+            'total_seconds' => $totalSeconds,
+            'is_running' => 0,
+            'locked' => 0,
+            'can_start' => 1,
+            'can_pause' => 0
         ]);
     }
 

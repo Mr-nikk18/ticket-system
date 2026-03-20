@@ -278,9 +278,9 @@ $this->load->view('Layout/Header');
 
                         <!-- ================= IT HEAD ================= -->
                         <?php if (!$isCrossDepartmentReadonly && $role_id == 2 && $department_id == 2) { ?>
-
-                        
-                        <?php if ($value['status_id'] == 1) { ?>
+ 
+                         
+                         <?php if ($value['status_id'] == 1) { ?>
                             <!-- Edit only if admin raised this ticket -->
         <?php if ($value['user_id'] == $this->session->userdata('user_id')) { ?>
             <a class="btn btn-sm btn-warning mb-1"
@@ -301,7 +301,7 @@ $this->load->view('Layout/Header');
                               class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
                               onclick="history(<?= $value['ticket_id'] ?>)">History</a><br>
 
-                          <?php } elseif ($value['status_id'] == 2 || ($value['status_id'] == 3)) { ?>
+                           <?php } elseif ($value['status_id'] == 2 || ($value['status_id'] == 3)) { ?>
 
                             <a class="btn btn-sm btn-primary mb-1" href="javascript:void(0)"
                               onclick="editFun(<?= $value['ticket_id'] ?>)">Edit</a><br>
@@ -324,12 +324,26 @@ $this->load->view('Layout/Header');
                               class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
                               onclick="history(<?= $value['ticket_id'] ?>)">History</a><br>
 
-                          <?php } else { ?>
+                           <?php } else { ?>
 
+                            <?php
+                              $closedReference = $value['closed_at'] ?? ($value['updated_at'] ?? ($value['created_at'] ?? ''));
+                              $canReopen = ((int) $value['status_id'] === 4) && $closedReference && strtotime($closedReference) !== false && strtotime($closedReference) >= strtotime('-7 days');
+                            ?>
+
+                            <?php if ($canReopen) { ?>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-success mb-1"
+                                onclick="trsReopenTicket(<?= (int) $value['ticket_id'] ?>)">
+                                Reopen Ticket
+                              </button><br>
+                            <?php } ?>
+ 
                             <a
                               class="btn btn-sm btn-dark mb-1 view-history" data-toggle="modal" data-target="#historyModal"
                               onclick="history(<?= $value['ticket_id'] ?>)">History</a>
-
+ 
                           <?php } ?>
                         <?php } ?>
 
@@ -836,6 +850,32 @@ $this->load->view('Layout/Header');
 </div>
 
 
+
+<script>
+  var trsBaseUrl = (typeof base_url !== 'undefined') ? base_url : "<?= base_url(); ?>";
+
+  function trsReopenTicket(ticketId) {
+    if (!ticketId) return;
+    if (!confirm('Reopen this ticket? It will move from Closed to Open and remain assigned to the same engineer.')) {
+      return;
+    }
+
+    $.ajax({
+      url: trsBaseUrl + "TRS/reopen_ticket",
+      type: "POST",
+      dataType: "json",
+      data: { ticket_id: ticketId }
+    }).done(function (res) {
+      if (res && res.status === true) {
+        window.location.reload();
+        return;
+      }
+      alert((res && res.message) ? res.message : "Unable to reopen ticket.");
+    }).fail(function () {
+      alert("Unable to reopen ticket.");
+    });
+  }
+</script>
 
 <?php
 $this->load->view('Layout/Footer');

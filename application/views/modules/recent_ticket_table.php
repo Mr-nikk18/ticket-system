@@ -1,6 +1,7 @@
 <?php
 $department_id = (int) $this->session->userdata('department_id');
 $role_id = (int) $this->session->userdata('role_id');
+$dashboardScopeValue = in_array((string) ($dashboard_scope ?? 'all'), ['mine', 'all', 'assigned'], true) ? (string) $dashboard_scope : 'all';
 $showDepartmentColumn = ($department_id === 2 || $role_id === 2);
 $selectedStatus = isset($dashboard_ticket_status) ? (int) $dashboard_ticket_status : 0;
 $viewAllUrl = $selectedStatus > 0 ? base_url('TRS/list/' . $selectedStatus) : base_url('TRS/list');
@@ -18,6 +19,7 @@ $scheduleUserValue = isset($selected_schedule_user_id) && (int) $selected_schedu
             <div class="d-flex flex-wrap align-items-center ml-lg-auto" style="gap:0.5rem;">
                 <form id="dashboardRecentFilterForm" method="get" action="<?= base_url('Dashboard') ?>" class="d-flex flex-wrap align-items-center" style="gap:0.5rem;">
                     <input type="hidden" name="schedule_user_id" value="<?= htmlspecialchars((string) $scheduleUserValue) ?>">
+                    <input type="hidden" name="dashboard_scope" value="<?= htmlspecialchars($dashboardScopeValue) ?>">
                     <select name="dashboard_ticket_status" class="custom-select custom-select-sm js-dashboard-ticket-filter" style="min-width: 170px;">
                         <option value="0" <?= $selectedStatus === 0 ? 'selected' : '' ?>>All Statuses</option>
                         <option value="1" <?= $selectedStatus === 1 ? 'selected' : '' ?>>Open</option>

@@ -284,20 +284,126 @@
         }
 
         message += '. Please complete this task.';
-        try {
-            var alertKey = 'trs-overdue-alert:' + scheduleName + ':' + taskTime;
-            var lastShownAt = parseInt(window.sessionStorage.getItem(alertKey) || '0', 10);
+        alert(message);
+    }
 
-            if (lastShownAt > 0 && (Date.now() - lastShownAt) < 600000) {
-                return;
-            }
+    var scheduleTimerInterval = null;
 
-            window.sessionStorage.setItem(alertKey, String(Date.now()));
-        } catch (error) {
-            // Ignore storage limitations and continue showing the alert once.
+    function padTwo(value) {
+        return value < 10 ? '0' + value : String(value);
+    }
+
+    function formatTimerSeconds(value) {
+        var total = parseInt(value || 0, 10);
+        if (isNaN(total) || total < 0) {
+            total = 0;
         }
 
-        alert(message);
+        var hours = Math.floor(total / 3600);
+        var minutes = Math.floor((total % 3600) / 60);
+        var seconds = total % 60;
+
+        return padTwo(hours) + ':' + padTwo(minutes) + ':' + padTwo(seconds);
+    }
+
+    function updateScheduleTimerDisplay($timer) {
+        if (!$timer || !$timer.length) {
+            return;
+        }
+
+        var state = $timer.data('timerState') || {};
+        var total = parseInt(state.base_seconds || 0, 10);
+
+        if (state.is_running && state.client_started_at) {
+            total += Math.max(0, Math.floor((Date.now() - state.client_started_at) / 1000));
+        }
+
+        $timer.find('.js-schedule-timer-display').text(formatTimerSeconds(total));
+        $timer.toggleClass('is-locked', !!state.locked);
+        $timer.find('.js-schedule-timer-start').prop('disabled', !state.can_start);
+        $timer.find('.js-schedule-timer-pause').prop('disabled', !state.can_pause);
+    }
+
+    function setScheduleTimerState($timer, payload) {
+        if (!$timer || !$timer.length) {
+            return;
+        }
+
+        payload = payload || {};
+        var canControl = String($timer.data('can-control')) !== '0';
+        var isRunning = !!payload.is_running;
+        var locked = !!payload.locked || !canControl;
+        var baseSeconds = parseInt(payload.total_seconds || 0, 10);
+
+        var state = {
+            base_seconds: baseSeconds,
+            is_running: isRunning,
+            locked: locked,
+            can_start: !!payload.can_start,
+            can_pause: !!payload.can_pause,
+            client_started_at: isRunning ? Date.now() : null
+        };
+
+        if (payload.can_start === undefined) {
+            state.can_start = canControl && !locked && !isRunning;
+        }
+
+        if (payload.can_pause === undefined) {
+            state.can_pause = canControl && !locked && isRunning;
+        }
+
+        $timer.data('timerState', state);
+        updateScheduleTimerDisplay($timer);
+    }
+
+    function refreshScheduleTimer($timer) {
+        if (!$timer || !$timer.length) {
+            return;
+        }
+
+        var taskId = parseInt($timer.data('schedule-task-id') || 0, 10);
+        if (!taskId) {
+            return;
+        }
+
+        $.ajax({
+            url: base_url + 'Schedule/timer_task_status',
+            type: 'GET',
+            dataType: 'json',
+            data: {
+                schedule_task_id: taskId,
+                execution_date: $timer.data('execution-date') || ''
+            }
+        }).done(function (response) {
+            if (!response || response.success !== true) {
+                return;
+            }
+            setScheduleTimerState($timer, response);
+        });
+    }
+
+    function refreshAllScheduleTimers() {
+        $('.js-schedule-timer').each(function () {
+            refreshScheduleTimer($(this));
+        });
+    }
+
+    function startScheduleTimerTicker() {
+        clearInterval(scheduleTimerInterval);
+
+        if (!$('.js-schedule-timer').length) {
+            return;
+        }
+
+        scheduleTimerInterval = setInterval(function () {
+            $('.js-schedule-timer').each(function () {
+                var $timer = $(this);
+                var state = $timer.data('timerState') || {};
+                if (state.is_running) {
+                    updateScheduleTimerDisplay($timer);
+                }
+            });
+        }, 1000);
     }
 
     function updateTodayStatusWidgets(statusCounts) {
@@ -334,6 +440,8 @@
                         $('#todayTaskBoardBody').html(response.html);
                         updateTodayStatusWidgets(response.status_counts || {});
                         showOverdueTaskAlert();
+                        refreshAllScheduleTimers();
+                        startScheduleTimerTicker();
                     }
                 }
             });
@@ -353,6 +461,57 @@
         $('#scheduleBoardRefresh').on('click', function (e) {
             e.preventDefault();
             loadTodayTaskBoard();
+        });
+
+        $(document).on('click', '.js-schedule-timer-start', function (e) {
+            e.preventDefault();
+            var $timer = $(this).closest('.js-schedule-timer');
+            var taskId = parseInt($timer.data('schedule-task-id') || 0, 10);
+            if (!taskId) {
+                return;
+            }
+
+            $.ajax({
+                url: base_url + 'Schedule/timer_task_start',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    schedule_task_id: taskId,
+                    execution_date: $timer.data('execution-date') || ''
+                }
+            }).done(function (response) {
+                if (!response || response.success !== true) {
+                    alert((response && response.message) ? response.message : 'Unable to start timer.');
+                    return;
+                }
+                setScheduleTimerState($timer, response);
+                startScheduleTimerTicker();
+            });
+        });
+
+        $(document).on('click', '.js-schedule-timer-pause', function (e) {
+            e.preventDefault();
+            var $timer = $(this).closest('.js-schedule-timer');
+            var taskId = parseInt($timer.data('schedule-task-id') || 0, 10);
+            if (!taskId) {
+                return;
+            }
+
+            $.ajax({
+                url: base_url + 'Schedule/timer_task_pause',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    schedule_task_id: taskId,
+                    execution_date: $timer.data('execution-date') || ''
+                }
+            }).done(function (response) {
+                if (!response || response.success !== true) {
+                    alert((response && response.message) ? response.message : 'Unable to pause timer.');
+                    return;
+                }
+                setScheduleTimerState($timer, response);
+            });
         });
 
         $('#allScheduleUserFilter').on('change', function () {
@@ -387,6 +546,10 @@
         $('#scheduleForm').on('reset', function () {
             setTimeout(syncScheduleAssignMode, 0);
         });
+
+        refreshAllScheduleTimers();
+        startScheduleTimerTicker();
+        showOverdueTaskAlert();
 
         $('#scheduleForm').on('submit', function (e) {
             e.preventDefault();

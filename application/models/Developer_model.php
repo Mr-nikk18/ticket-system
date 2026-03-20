@@ -303,9 +303,17 @@ class Developer_model extends CI_Model
     public function getClosedResolvedProcessTickets($dev_id)
     {
         return $this->db
-            ->where('assigned_engineer_id', $dev_id)
-            ->where_in('status_id', [1, 4, 3, 2])
-            ->get('tickets')
+            ->select('
+                t.*,
+                COALESCE(ts.status_slug, ts.status_name, "unknown") AS recent_status
+            ', false)
+            ->from('tickets t')
+            ->join('ticket_statuses ts', 'ts.status_id = t.status_id', 'left')
+            ->where('t.assigned_engineer_id', $dev_id)
+            ->where('t.deleted_at IS NULL', null, false)
+            ->where_in('t.status_id', [1, 4, 3, 2])
+            ->order_by('t.created_at', 'DESC')
+            ->get()
             ->result_array();
     }
 

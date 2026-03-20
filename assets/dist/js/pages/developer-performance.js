@@ -1,11 +1,20 @@
 (function (window, $) {
     var config = window.DeveloperPerformanceConfig || {};
+    var instanceKey = '__trsDeveloperPerformanceInstance';
+    if (window[instanceKey] && typeof window[instanceKey].destroy === 'function') {
+        window[instanceKey].destroy();
+    }
     var overviewChart = null;
     var detailStatusChart = null;
     var detailVolumeChart = null;
     var hierarchyLoaded = false;
     var selectedHierarchyUserId = null;
     var selectedHierarchyUserName = '';
+    var ticketScope = (config.initialTicketScope || 'all').toString().toLowerCase() === 'mine' ? 'mine' : 'all';
+    var gridRequest = null;
+    var detailRequest = null;
+    var hierarchyRequest = null;
+    var gridIntervalId = null;
     var sectionMeta = {
         queue: {
             title: 'Review Queue',
@@ -23,6 +32,12 @@
 
     function escapeHtml(value) {
         return $('<div>').text(value == null ? '' : String(value)).html();
+    }
+
+    function abortRequest(request) {
+        if (request && request.readyState !== 4) {
+            request.abort();
+        }
     }
 
     function applyDeveloperFilters() {
@@ -90,8 +105,48 @@
         $('#perfOverviewAccepted').text(parseInt(overview.accepted_total || 0, 10));
         $('#perfOverviewDelegation').text(parseInt(overview.delegation_absence || 0, 10));
         $('#perfOverviewLeaveMeta').text(parseInt(overview.leave_days_total || 0, 10) + ' leave days / ' + parseInt(overview.present_days_total || 0, 10) + ' present days');
+    }
+
+    function updateTicketOverview(ticketOverview, shouldRenderChart) {
+        ticketOverview = ticketOverview || {};
+        var openCnt = parseInt(ticketOverview.open_tickets || 0, 10);
+        var inProgressCnt = parseInt(ticketOverview.in_progress_tickets || 0, 10);
+        var resolvedCnt = parseInt(ticketOverview.resolved_tickets || 0, 10);
+        var closedCnt = parseInt(ticketOverview.closed_tickets || 0, 10);
+        var totalCnt = parseInt(ticketOverview.total_tickets || 0, 10);
+
+        if (!totalCnt) {
+            totalCnt = openCnt + inProgressCnt + resolvedCnt + closedCnt;
+        }
+
+        $('#perfTicketScopeLabel').text(ticketScope === 'mine' ? 'Mine' : 'All');
+        $('#perfTicketTotal').text(totalCnt);
+
         if (shouldRenderChart) {
-            renderOverviewChart(overview || {});
+            renderOverviewChart({
+                open_tickets: openCnt,
+                in_progress_tickets: inProgressCnt,
+                resolved_tickets: resolvedCnt,
+                closed_tickets: closedCnt
+            });
+        }
+    }
+
+    function setTicketScope(nextScope, options) {
+        options = options || {};
+        nextScope = (nextScope || '').toString().toLowerCase() === 'mine' ? 'mine' : 'all';
+        if (nextScope === ticketScope) {
+            return;
+        }
+
+        ticketScope = nextScope;
+        $('#perfTicketScopeSelect').val(ticketScope);
+        $('#perfTicketScopeToggle .perf-scope-btn').removeClass('is-active');
+        $('#perfTicketScopeToggle .perf-scope-btn[data-scope="' + ticketScope + '"]').addClass('is-active');
+        $('#perfTicketScopeLabel').text(ticketScope === 'mine' ? 'Mine' : 'All');
+
+        if (options.refresh !== false) {
+            refreshDeveloperGrid();
         }
     }
 
@@ -189,23 +244,27 @@
     }
 
     function refreshDeveloperGrid(callback) {
-        $.ajax({
+        abortRequest(gridRequest);
+        gridRequest = $.ajax({
             url: config.dataUrl,
             type: 'GET',
             dataType: 'json',
-            data: { year: config.year }
+            data: { year: config.year, ticket_scope: ticketScope }
         }).done(function (response) {
             if (!response || response.status !== true) {
                 return;
             }
 
-            updateOverviewCounters(response.overview || config.initialOverview || {}, true);
+            updateOverviewCounters(response.overview || config.initialOverview || {}, false);
+            updateTicketOverview(response.ticket_overview || config.initialTicketOverview || {}, true);
             $('#developerPerformanceGrid').html(renderDeveloperCards(response.developers || []));
             applyDeveloperFilters();
 
             if (typeof callback === 'function') {
                 callback(response);
             }
+        }).always(function () {
+            gridRequest = null;
         });
     }
 
@@ -375,7 +434,8 @@
     function loadDeveloperDetail(developerId) {
         $('#developerPerformanceDetailBody').html('<div class="perf-empty-state compact"><i class="fas fa-circle-notch fa-spin"></i><h4>Loading detail</h4><p>Developer performance, charts and live ticket state fetch ho raha hai.</p></div>');
 
-        $.ajax({
+        abortRequest(detailRequest);
+        detailRequest = $.ajax({
             url: config.detailUrl,
             type: 'GET',
             dataType: 'json',
@@ -397,6 +457,8 @@
             renderDetailCharts(response.data || {});
         }).fail(function () {
             $('#developerPerformanceDetailBody').html('<div class="perf-empty-state compact"><i class="fas fa-exclamation-triangle"></i><h4>Request failed</h4><p>AJAX response nahi mila.</p></div>');
+        }).always(function () {
+            detailRequest = null;
         });
     }
 
@@ -580,7 +642,8 @@
 
         $('#developerHierarchyTree').html('<div class="text-muted py-4 text-center">Hierarchy loading...</div>');
 
-        $.ajax({
+        abortRequest(hierarchyRequest);
+        hierarchyRequest = $.ajax({
             url: config.hierarchyUrl,
             type: 'GET',
             dataType: 'json',
@@ -610,6 +673,8 @@
             loadHierarchyMember(selectedHierarchyUserId || tree.user_id);
         }).fail(function () {
             $('#developerHierarchyTree').html('<div class="text-danger py-4 text-center">Unable to load hierarchy.</div>');
+        }).always(function () {
+            hierarchyRequest = null;
         });
     }
 
@@ -669,17 +734,35 @@
         });
     }
 
-    $(function () {
-        updateOverviewCounters(config.initialOverview || {}, true);
+    function bindEvents() {
+        $(document).off('.trsDevPerf');
+        $('#perfTicketScopeToggle .perf-scope-btn').off('.trsDevPerf');
+        $('#perfTicketScopeSelect').off('.trsDevPerf');
+        $('#developerPerformanceSearch, #developerCompanyFilter, #developerPerformanceDepartmentFilter').off('.trsDevPerf');
+        $('#developerFilterToggle').off('.trsDevPerf');
+        $('#developerHierarchyForm').off('.trsDevPerf');
+        $('#refreshHierarchyBtn').off('.trsDevPerf');
+        $('#btnDeveloperReportPdf').off('.trsDevPerf');
+
+        updateOverviewCounters(config.initialOverview || {}, false);
+        updateTicketOverview(config.initialTicketOverview || {}, true);
         switchWorkspace(getWorkspaceFromHash(), { skipHistory: true });
 
-        $('#developerPerformanceSearch, #developerCompanyFilter, #developerPerformanceDepartmentFilter').on('input change', applyDeveloperFilters);
+        $('#developerPerformanceSearch, #developerCompanyFilter, #developerPerformanceDepartmentFilter').on('input.trsDevPerf change.trsDevPerf', applyDeveloperFilters);
 
-        $('#developerFilterToggle').on('click', function () {
+        $('#perfTicketScopeToggle .perf-scope-btn').on('click.trsDevPerf', function () {
+            setTicketScope($(this).data('scope'), { refresh: true });
+        });
+
+        $('#perfTicketScopeSelect').val(ticketScope).on('change.trsDevPerf', function () {
+            setTicketScope($(this).val(), { refresh: true });
+        });
+
+        $('#developerFilterToggle').on('click.trsDevPerf', function () {
             $('#developerFilterPanel').stop(true, true).slideToggle(160);
         });
 
-        $(document).on('click', '.perf-dev-card', function () {
+        $(document).on('click.trsDevPerf', '.perf-dev-card', function () {
             var developerId = $(this).data('developer-id');
             var developerName = ($(this).data('developer-name') || '').toString();
             if (!developerId) {
@@ -696,46 +779,69 @@
             loadDeveloperDetail(developerId);
         });
 
-        $(document).on('click', '.perf-side-nav-btn', function () {
+        $(document).on('click.trsDevPerf', '.perf-side-nav-btn', function () {
             switchWorkspace($(this).data('target'));
         });
 
-        $(document).on('click', '#developerHierarchyTree .perf-tree-card', function () {
+        $(document).on('click.trsDevPerf', '#developerHierarchyTree .perf-tree-card', function () {
             loadHierarchyMember($(this).data('user-id'));
         });
 
-        $(document).on('click', '#developerHierarchyTree .js-hierarchy-add', function (event) {
+        $(document).on('click.trsDevPerf', '#developerHierarchyTree .js-hierarchy-add', function (event) {
             event.preventDefault();
             event.stopPropagation();
             switchWorkspace('hierarchy');
             prepareHierarchyAdd($(this).data('user-id'), $(this).data('user-name'));
         });
 
-        $('#developerHierarchyForm').on('submit', function (event) {
+        $('#developerHierarchyForm').on('submit.trsDevPerf', function (event) {
             event.preventDefault();
             submitHierarchyUpdate();
         });
 
-        $('#refreshHierarchyBtn').on('click', function () {
+        $('#refreshHierarchyBtn').on('click.trsDevPerf', function () {
             hierarchyLoaded = false;
             loadHierarchyData(true);
         });
 
-        $('#btnDeveloperReportPdf').on('click', function () {
+        $('#btnDeveloperReportPdf').on('click.trsDevPerf', function () {
             var fromDate = $('#reportFromDate').val() || '';
             var toDate = $('#reportToDate').val() || '';
             var year = config.year || new Date().getFullYear();
             var url = config.exportUrl + '?year=' + encodeURIComponent(year) + '&from_date=' + encodeURIComponent(fromDate) + '&to_date=' + encodeURIComponent(toDate);
-            window.open(url, '_blank');
+            window.location.href = url;
         });
 
-        setInterval(function () {
+        clearInterval(gridIntervalId);
+        gridIntervalId = setInterval(function () {
             if (document.hidden || !$('#developerPerformanceGrid').length) {
                 return;
             }
 
             refreshDeveloperGrid();
         }, 120000);
+    }
 
+    function destroy() {
+        abortRequest(gridRequest);
+        abortRequest(detailRequest);
+        abortRequest(hierarchyRequest);
+        clearInterval(gridIntervalId);
+        $(document).off('.trsDevPerf');
+        $('#perfTicketScopeToggle .perf-scope-btn').off('.trsDevPerf');
+        $('#perfTicketScopeSelect').off('.trsDevPerf');
+        $('#developerPerformanceSearch, #developerCompanyFilter, #developerPerformanceDepartmentFilter').off('.trsDevPerf');
+        $('#developerFilterToggle').off('.trsDevPerf');
+        $('#developerHierarchyForm').off('.trsDevPerf');
+        $('#refreshHierarchyBtn').off('.trsDevPerf');
+        $('#btnDeveloperReportPdf').off('.trsDevPerf');
+    }
+
+    window[instanceKey] = {
+        destroy: destroy
+    };
+
+    $(function () {
+        bindEvents();
     });
 })(window, jQuery);

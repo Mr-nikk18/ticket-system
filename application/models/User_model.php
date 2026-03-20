@@ -112,6 +112,150 @@ class User_model extends CI_Model
         return $this->db->insert('users', $data);
     }
 
+    public function get_all_roles()
+    {
+        return $this->db
+            ->select('role_id, role_name')
+            ->from('roles')
+            ->order_by('role_name', 'ASC')
+            ->get()
+            ->result_array();
+    }
+
+    public function get_all_departments()
+    {
+        return $this->db
+            ->select('department_id, department_name')
+            ->from('departments')
+            ->order_by('department_name', 'ASC')
+            ->get()
+            ->result_array();
+    }
+
+    public function get_active_users_for_select()
+    {
+        return $this->db
+            ->select('user_id, name, email, department_id')
+            ->from('users')
+            ->where('status', 'Active')
+            ->order_by('name', 'ASC')
+            ->get()
+            ->result_array();
+    }
+
+    public function get_hierarchy_candidates($excludeUserId = null)
+    {
+        $this->db
+            ->select('
+                users.user_id,
+                users.name,
+                users.email,
+                users.department_id,
+                users.status,
+                roles.role_name,
+                departments.department_name
+            ')
+            ->from('users')
+            ->join('roles', 'roles.role_id = users.role_id', 'left')
+            ->join('departments', 'departments.department_id = users.department_id', 'left');
+
+        if ($excludeUserId !== null) {
+            $this->db->where('users.user_id !=', (int) $excludeUserId);
+        }
+
+        return $this->db
+            ->order_by('departments.department_name', 'ASC')
+            ->order_by('roles.role_name', 'ASC')
+            ->order_by('users.name', 'ASC')
+            ->get()
+            ->result_array();
+    }
+
+    public function get_all_users_with_meta()
+    {
+        return $this->db
+            ->select('
+                users.user_id,
+                users.user_name,
+                users.name,
+                users.email,
+                users.phone,
+                users.company_name,
+                users.role_id,
+                users.department_id,
+                users.reports_to,
+                users.is_registered,
+                users.status,
+                users.created_at,
+                roles.role_name,
+                departments.department_name,
+                manager.name AS reports_to_name,
+                manager.email AS reports_to_email
+            ')
+            ->from('users')
+            ->join('roles', 'roles.role_id = users.role_id', 'left')
+            ->join('departments', 'departments.department_id = users.department_id', 'left')
+            ->join('users manager', 'manager.user_id = users.reports_to', 'left')
+            ->order_by('users.created_at', 'DESC')
+            ->get()
+            ->result_array();
+    }
+
+    public function get_user_with_meta($user_id)
+    {
+        return $this->db
+            ->select('
+                users.*,
+                roles.role_name,
+                departments.department_name,
+                manager.name AS reports_to_name,
+                manager.email AS reports_to_email
+            ')
+            ->from('users')
+            ->join('roles', 'roles.role_id = users.role_id', 'left')
+            ->join('departments', 'departments.department_id = users.department_id', 'left')
+            ->join('users manager', 'manager.user_id = users.reports_to', 'left')
+            ->where('users.user_id', (int) $user_id)
+            ->get()
+            ->row_array();
+    }
+
+    public function username_exists_except($username, $user_id = null)
+    {
+        $username = trim((string) $username);
+        if ($username === '') {
+            return false;
+        }
+
+        $this->db
+            ->from('users')
+            ->where('user_name', $username);
+
+        if ($user_id !== null) {
+            $this->db->where('user_id !=', (int) $user_id);
+        }
+
+        return (bool) $this->db->count_all_results();
+    }
+
+    public function email_exists_except($email, $user_id = null)
+    {
+        $email = strtolower(trim((string) $email));
+        if ($email === '') {
+            return false;
+        }
+
+        $this->db
+            ->from('users')
+            ->where('email', $email);
+
+        if ($user_id !== null) {
+            $this->db->where('user_id !=', (int) $user_id);
+        }
+
+        return (bool) $this->db->count_all_results();
+    }
+
     public function get_all_staff()
     {
         return $this->db

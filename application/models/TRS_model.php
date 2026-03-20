@@ -1,6 +1,28 @@
 <?php
 class TRS_model extends CI_Model
 {
+        private function getRecentClosedVisibilitySql($alias = 't')
+        {
+            $alias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $alias);
+            $alias = $alias !== '' ? $alias : 't';
+
+            return sprintf(
+                '(%1$s.status_id = 4 AND COALESCE(%1$s.closed_at, %1$s.updated_at, %1$s.created_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY))',
+                $alias
+            );
+        }
+
+        private function applyVisibleTicketStateFilter($alias = 't')
+        {
+            $alias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $alias);
+            $alias = $alias !== '' ? $alias : 't';
+
+            $this->db->group_start()
+                ->where($alias . '.status_id !=', 4)
+                ->or_where($this->getRecentClosedVisibilitySql($alias), null, false)
+            ->group_end();
+        }
+
         private function get_ticket_rule_scope()
         {
             return ((int) $this->session->userdata('department_id') === 2) ? 1 : 0;
@@ -226,8 +248,14 @@ public function get_tasks_by_ticket($ticket_id)
     /* -------- COUNTS -------- */
    public function count_tickets_by_status($status, $user_id = null)
 {
-    $this->db->where('status_id', $status);
     $this->db->where('deleted_at IS NULL', null, false);
+
+    if ((int) $status === 4) {
+        $this->db->where('status_id', 4);
+        $this->db->where('COALESCE(closed_at, updated_at, created_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY)', null, false);
+    } else {
+        $this->db->where('status_id', $status);
+    }
 
     if ($user_id) {
         $this->db->where('user_id', $user_id);
@@ -331,10 +359,13 @@ public function get_visible_tickets_for_list($role_id, $department_id, $user_id,
         ->join('users engineer', 'engineer.user_id = t.assigned_engineer_id', 'left')
         ->join('departments dept', 'dept.department_id = owner.department_id', 'left')
         ->join('ticket_tasks tt', 'tt.ticket_id = t.ticket_id', 'left')
-        ->where('t.deleted_at IS NULL')
+        ->where('t.deleted_at IS NULL', null, false)
         ->group_by('t.ticket_id');
 
-    if ($status != null) {
+    // Hide closed tickets after 7 days, matching the Kanban board behavior.
+    $this->applyVisibleTicketStateFilter('t');
+
+    if ($status !== null) {
         $this->db->where('t.status_id', $status);
     }
 
@@ -346,8 +377,6 @@ public function get_visible_tickets_for_list($role_id, $department_id, $user_id,
         if ($status === null) {
             $this->db->where_in('t.status_id', [2, 3, 4]);
         }
-    } elseif ($status === null) {
-        $this->db->where('t.status_id', 1);
     }
 
     if ($role_id === 2 && $department_id === 2) {
