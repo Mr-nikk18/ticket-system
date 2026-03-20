@@ -158,10 +158,7 @@ $printAssets = isset($print_assets) && is_array($print_assets) ? $print_assets :
                                                         <span class="qr-print-card__detail-label">Department</span>
                                                         <span class="qr-print-card__detail-value"><?= htmlspecialchars((string) ($assetRow['asset_department_name'] ?? 'Not set')) ?></span>
                                                     </div>
-                                                    <div class="qr-print-card__detail">
-                                                        <span class="qr-print-card__detail-label">Status</span>
-                                                        <span class="qr-print-card__detail-value"><?= htmlspecialchars((string) ($assetRow['status'] ?? 'Working')) ?></span>
-                                                    </div>
+                                                   
                                                 </div>
                                             </div>
                                         </div>
