@@ -8,6 +8,8 @@ $selectedSerialNumber = htmlspecialchars((string) ($filters['serial_number'] ?? 
 $searchQuery = htmlspecialchars((string) ($filters['q'] ?? ''));
 $defaultPrintCopies = (int) ($default_print_copies ?? 1);
 $defaultPrintCopies = $defaultPrintCopies > 0 ? $defaultPrintCopies : 1;
+$printDepartmentOptions = isset($print_department_options) && is_array($print_department_options) ? $print_department_options : [];
+$printAssetTypeOptions = isset($print_asset_type_options) && is_array($print_asset_type_options) ? $print_asset_type_options : [];
 $printAssets = isset($print_assets) && is_array($print_assets) ? $print_assets : [];
 ?>
 
@@ -51,7 +53,7 @@ $printAssets = isset($print_assets) && is_array($print_assets) ? $print_assets :
                                 <label for="qrPrintDepartment">Department</label>
                                 <select id="qrPrintDepartment" name="department_id" class="form-control">
                                     <option value="">All departments</option>
-                                    <?php foreach ($print_department_options as $department): ?>
+                                    <?php foreach ($printDepartmentOptions as $department): ?>
                                         <option value="<?= (int) $department['department_id'] ?>" <?= $selectedDepartmentId === (int) $department['department_id'] ? 'selected' : '' ?>>
                                             <?= htmlspecialchars((string) $department['department_name']) ?>
                                         </option>
@@ -63,7 +65,7 @@ $printAssets = isset($print_assets) && is_array($print_assets) ? $print_assets :
                                 <label for="qrPrintAssetType">Asset Type</label>
                                 <select id="qrPrintAssetType" name="asset_type" class="form-control">
                                     <option value="">All asset types</option>
-                                    <?php foreach ($print_asset_type_options as $assetTypeOption): ?>
+                                    <?php foreach ($printAssetTypeOptions as $assetTypeOption): ?>
                                         <option value="<?= htmlspecialchars((string) $assetTypeOption) ?>" <?= $selectedAssetType === (string) $assetTypeOption ? 'selected' : '' ?>>
                                             <?= htmlspecialchars((string) $assetTypeOption) ?>
                                         </option>
@@ -137,7 +139,7 @@ $printAssets = isset($print_assets) && is_array($print_assets) ? $print_assets :
 
                                                 <div class="qr-print-card__media">
                                                     <?php if (!empty($assetRow['qr_image_url'])): ?>
-                                                        <img src="<?= htmlspecialchars((string) $assetRow['qr_image_url']) ?>" alt="QR for <?= htmlspecialchars((string) ($assetRow['display_serial_number'] ?? 'Asset')) ?>">
+                                                        <img src="<?= htmlspecialchars((string) $assetRow['qr_image_url']) ?>" alt="QR for <?= htmlspecialchars((string) ($assetRow['display_serial_number'] ?? 'Asset')) ?>" loading="lazy" decoding="async">
                                                     <?php else: ?>
                                                         <div class="asset-empty-state">QR image unavailable</div>
                                                     <?php endif; ?>

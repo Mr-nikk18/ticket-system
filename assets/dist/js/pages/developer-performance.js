@@ -141,8 +141,6 @@
 
         ticketScope = nextScope;
         $('#perfTicketScopeSelect').val(ticketScope);
-        $('#perfTicketScopeToggle .perf-scope-btn').removeClass('is-active');
-        $('#perfTicketScopeToggle .perf-scope-btn[data-scope="' + ticketScope + '"]').addClass('is-active');
         $('#perfTicketScopeLabel').text(ticketScope === 'mine' ? 'Mine' : 'All');
 
         if (options.refresh !== false) {
@@ -183,8 +181,8 @@
             var initials = (dev.name || '?').trim().charAt(0).toUpperCase();
 
             return '' +
-                '<div class="col-xl-6 developer-performance-item" data-name="' + escapeHtml((dev.name || '').toLowerCase()) + '" data-company="' + escapeHtml(((dev.company_name || 'no company')).toLowerCase()) + '" data-department="' + escapeHtml(((dev.department_name || 'no department')).toLowerCase()) + '">' +
-                '<div class="perf-dev-card" data-developer-id="' + parseInt(dev.user_id || 0, 10) + '" data-developer-name="' + escapeHtml(dev.name || 'Unknown') + '">' +
+                '<div class="col-xl-6 developer-performance-item d-flex" data-name="' + escapeHtml((dev.name || '').toLowerCase()) + '" data-company="' + escapeHtml(((dev.company_name || 'no company')).toLowerCase()) + '" data-department="' + escapeHtml(((dev.department_name || 'no department')).toLowerCase()) + '">' +
+                '<div class="perf-dev-card w-100" data-developer-id="' + parseInt(dev.user_id || 0, 10) + '" data-developer-name="' + escapeHtml(dev.name || 'Unknown') + '">' +
                 '<div class="perf-dev-glow"></div>' +
                 '<div class="perf-dev-header">' +
                 '<div class="perf-dev-avatar">' + escapeHtml(initials) + '</div>' +
@@ -508,40 +506,6 @@
         html += '</li>';
         return html;
     }
-
-    function populateHierarchyFormLegacy(tree, eligibleUsers) {
-        var hierarchyMembers = flattenTree(tree, [], 0);
-
-        var managerOptions = hierarchyMembers.map(function (item) {
-            var indent = new Array((item.depth || 0) + 1).join('› ');
-            return '<option value="' + item.user_id + '">' + escapeHtml(indent + item.name) + '</option>';
-        }).join('');
-
-        var memberOptions = hierarchyMembers
-            .filter(function (item) { return item.depth > 0; })
-            .map(function (item) {
-                var indent = new Array((item.depth || 0) + 1).join('› ');
-                return '<option value="' + item.user_id + '">' + escapeHtml(indent + item.name) + '</option>';
-            }).join('');
-
-        var eligibleOptions = eligibleUsers.map(function (item) {
-            return '<option value="' + parseInt(item.user_id, 10) + '">' + escapeHtml(item.name + ' (' + (item.role_name || 'User') + ')') + '</option>';
-        }).join('');
-
-        $('#hierarchyManagerUser').html('<option value="">Select manager</option>' + managerOptions);
-        $('#hierarchyTargetUser').html('<option value="">Select user</option>' + memberOptions + eligibleOptions);
-    }
-
-    function prepareHierarchyAddLegacy(managerId, managerName) {
-        selectedHierarchyUserId = parseInt(managerId || 0, 10) || null;
-        selectedHierarchyUserName = managerName || 'selected member';
-        $('#hierarchyManagerUser').val(managerId);
-        $('#developerHierarchyFormTitle').text('Add or Move Under ' + selectedHierarchyUserName);
-        $('#developerHierarchyFormHelper').text('Direct hierarchy update: user choose karo, manager auto-selected hai. Sirf team member select karke save karo.');
-        $('#developerHierarchyMessage').removeClass('success error').text('');
-        $('#hierarchyTargetUser').focus();
-    }
-
     function populateHierarchyForm(tree, eligibleUsers) {
         var hierarchyMembers = flattenTree(tree, [], 0);
 
@@ -736,7 +700,6 @@
 
     function bindEvents() {
         $(document).off('.trsDevPerf');
-        $('#perfTicketScopeToggle .perf-scope-btn').off('.trsDevPerf');
         $('#perfTicketScopeSelect').off('.trsDevPerf');
         $('#developerPerformanceSearch, #developerCompanyFilter, #developerPerformanceDepartmentFilter').off('.trsDevPerf');
         $('#developerFilterToggle').off('.trsDevPerf');
@@ -749,10 +712,6 @@
         switchWorkspace(getWorkspaceFromHash(), { skipHistory: true });
 
         $('#developerPerformanceSearch, #developerCompanyFilter, #developerPerformanceDepartmentFilter').on('input.trsDevPerf change.trsDevPerf', applyDeveloperFilters);
-
-        $('#perfTicketScopeToggle .perf-scope-btn').on('click.trsDevPerf', function () {
-            setTicketScope($(this).data('scope'), { refresh: true });
-        });
 
         $('#perfTicketScopeSelect').val(ticketScope).on('change.trsDevPerf', function () {
             setTicketScope($(this).val(), { refresh: true });
@@ -805,11 +764,18 @@
         });
 
         $('#btnDeveloperReportPdf').on('click.trsDevPerf', function () {
-            var fromDate = $('#reportFromDate').val() || '';
-            var toDate = $('#reportToDate').val() || '';
-            var year = config.year || new Date().getFullYear();
-            var url = config.exportUrl + '?year=' + encodeURIComponent(year) + '&from_date=' + encodeURIComponent(fromDate) + '&to_date=' + encodeURIComponent(toDate);
-            window.location.href = url;
+            if (!window.DeveloperPerformanceExporter || typeof window.DeveloperPerformanceExporter.download !== 'function') {
+                window.alert('Excel exporter is unavailable right now.');
+                return;
+            }
+
+            window.DeveloperPerformanceExporter.download({
+                button: this,
+                dataUrl: config.exportDataUrl || '',
+                year: config.year || new Date().getFullYear(),
+                fromDate: $('#reportFromDate').val() || '',
+                toDate: $('#reportToDate').val() || ''
+            });
         });
 
         clearInterval(gridIntervalId);
@@ -828,7 +794,6 @@
         abortRequest(hierarchyRequest);
         clearInterval(gridIntervalId);
         $(document).off('.trsDevPerf');
-        $('#perfTicketScopeToggle .perf-scope-btn').off('.trsDevPerf');
         $('#perfTicketScopeSelect').off('.trsDevPerf');
         $('#developerPerformanceSearch, #developerCompanyFilter, #developerPerformanceDepartmentFilter').off('.trsDevPerf');
         $('#developerFilterToggle').off('.trsDevPerf');

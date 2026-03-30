@@ -3,14 +3,25 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Asset_model extends CI_Model
 {
+    private $supportsQrImagePathCache = null;
+    private $supportsDepartmentIdCache = null;
+
     private function supportsQrImagePath()
     {
-        return $this->db->field_exists('qr_image_path', 'assets');
+        if ($this->supportsQrImagePathCache === null) {
+            $this->supportsQrImagePathCache = $this->db->field_exists('qr_image_path', 'assets');
+        }
+
+        return $this->supportsQrImagePathCache;
     }
 
     private function supportsDepartmentId()
     {
-        return $this->db->field_exists('department_id', 'assets');
+        if ($this->supportsDepartmentIdCache === null) {
+            $this->supportsDepartmentIdCache = $this->db->field_exists('department_id', 'assets');
+        }
+
+        return $this->supportsDepartmentIdCache;
     }
 
     private function baseAssetSelect()

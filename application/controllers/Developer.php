@@ -8,6 +8,70 @@ class Developer extends MY_Controller
     return (int) $this->session->userdata('user_id');
   }
 
+  private function normalizePerformanceYear($year)
+  {
+    $year = (int) $year;
+
+    return $year > 0 ? $year : (int) date('Y');
+  }
+
+  private function getPerformanceReportWindow($year, $fromDate = null, $toDate = null)
+  {
+    $year = $this->normalizePerformanceYear($year);
+    $fromDate = trim((string) $fromDate);
+    $toDate = trim((string) $toDate);
+
+    if ($fromDate === '' || strtotime($fromDate) === false) {
+      $fromDate = sprintf('%04d-01-01', $year);
+    }
+
+    if ($toDate === '' || strtotime($toDate) === false) {
+      $toDate = date('Y-m-d');
+    }
+
+    if (strtotime($fromDate) > strtotime($toDate)) {
+      $swap = $fromDate;
+      $fromDate = $toDate;
+      $toDate = $swap;
+    }
+
+    return [
+      'from_date' => $fromDate,
+      'to_date' => $toDate,
+    ];
+  }
+
+  private function buildDeveloperPerformanceExportPayload($year, $fromDate, $toDate, array $scopeUserIds, $currentUserId)
+  {
+    $year = $this->normalizePerformanceYear($year);
+    $developers = $this->Developer_model->getDeveloperPerformance($year, $scopeUserIds, $currentUserId);
+    $exportDevelopers = [];
+
+    foreach ($developers as $developerSummary) {
+      $detail = $this->Developer_model->getDeveloperPerformanceDetail(
+        (int) ($developerSummary['user_id'] ?? 0),
+        $year,
+        $scopeUserIds,
+        $currentUserId
+      );
+
+      $exportDevelopers[] = [
+        'summary' => $developerSummary,
+        'detail' => $detail ?: null,
+      ];
+    }
+
+    return [
+      'year' => $year,
+      'from_date' => $fromDate,
+      'to_date' => $toDate,
+      'generated_at' => date('Y-m-d H:i:s'),
+      'generated_by' => (string) $this->session->userdata('username'),
+      'overview' => $this->Developer_model->getDeveloperPerformanceOverview($currentUserId, $year, $scopeUserIds),
+      'developers' => $exportDevelopers,
+    ];
+  }
+
   private function getPerformanceScopeUserIds()
   {
     $currentUserId = $this->getCurrentUserId();
@@ -67,10 +131,7 @@ class Developer extends MY_Controller
       redirect('Dashboard');
     }
 
-    $year = (int) $this->input->get('year');
-    if ($year <= 0) {
-      $year = (int) date('Y');
-    }
+    $year = $this->normalizePerformanceYear($this->input->get('year'));
 
     $scopeUserIds = $this->getPerformanceScopeUserIds();
     $currentUserId = $this->getCurrentUserId();
@@ -85,7 +146,11 @@ class Developer extends MY_Controller
     $developer['overview'] = $this->Developer_model->getDeveloperPerformanceOverview($currentUserId, $year, $scopeUserIds);
     $developer['ticket_scope'] = $ticketScope;
     $developer['ticket_overview'] = $this->Ticket_model->getTicketStatusOverview($currentUserId, $roleId, $departmentId, $ticketScope, $year);
-    $developer['page_js'] = ['assets/dist/js/pages/developer-performance.js'];
+    $developer['page_js'] = [
+      'assets/plugins/xlsx/xlsx.full.min.js',
+      'assets/dist/js/pages/developer-performance-export.js',
+      'assets/dist/js/pages/developer-performance.js',
+    ];
     $this->load->view('Same_pages/developer_performance', $developer);
   }
 
@@ -95,10 +160,7 @@ class Developer extends MY_Controller
       return $this->outputJson(['status' => false, 'message' => 'Unauthorized'], 403);
     }
 
-    $year = (int) $this->input->get('year');
-    if ($year <= 0) {
-      $year = (int) date('Y');
-    }
+    $year = $this->normalizePerformanceYear($this->input->get('year'));
 
     $scopeUserIds = $this->getPerformanceScopeUserIds();
     $currentUserId = $this->getCurrentUserId();
@@ -122,14 +184,10 @@ class Developer extends MY_Controller
     }
 
     $developerId = (int) $this->input->get('developer_id');
-    $year = (int) $this->input->get('year');
+    $year = $this->normalizePerformanceYear($this->input->get('year'));
 
     if ($developerId <= 0) {
       return $this->outputJson(['status' => false, 'message' => 'Invalid developer'], 422);
-    }
-
-    if ($year <= 0) {
-      $year = (int) date('Y');
     }
 
     $scopeUserIds = $this->getPerformanceScopeUserIds();
@@ -153,27 +211,20 @@ class Developer extends MY_Controller
       return;
     }
 
-    $year = (int) $this->input->get('year');
-    if ($year <= 0) {
-      $year = (int) date('Y');
-    }
-    $from_date = $this->input->get('from_date');
-    $to_date = $this->input->get('to_date');
-
-    if (!$from_date || strtotime($from_date) === false) {
-      $from_date = date('Y-01-01', strtotime($year . '-01-01'));
-    }
-    if (!$to_date || strtotime($to_date) === false) {
-      $to_date = date('Y-m-d');
-    }
+    $year = $this->normalizePerformanceYear($this->input->get('year'));
+    $reportWindow = $this->getPerformanceReportWindow(
+      $year,
+      $this->input->get('from_date'),
+      $this->input->get('to_date')
+    );
 
     $scopeUserIds = $this->getPerformanceScopeUserIds();
     $currentUserId = $this->getCurrentUserId();
 
     $data = [
       'year' => $year,
-      'from_date' => $from_date,
-      'to_date' => $to_date,
+      'from_date' => $reportWindow['from_date'],
+      'to_date' => $reportWindow['to_date'],
       'overview' => $this->Developer_model->getDeveloperPerformanceOverview($currentUserId, $year, $scopeUserIds),
       'developers' => $this->Developer_model->getDeveloperPerformance($year, $scopeUserIds, $currentUserId),
     ];
@@ -188,16 +239,40 @@ class Developer extends MY_Controller
     $this->load->view('Same_pages/developer_performance_report', $data);
   }
 
+  public function developer_performance_export_data()
+  {
+    if (!$this->canAccessPerformance()) {
+      return $this->outputJson(['status' => false, 'message' => 'Unauthorized'], 403);
+    }
+
+    $year = $this->normalizePerformanceYear($this->input->get('year'));
+    $reportWindow = $this->getPerformanceReportWindow(
+      $year,
+      $this->input->get('from_date'),
+      $this->input->get('to_date')
+    );
+    $scopeUserIds = $this->getPerformanceScopeUserIds();
+    $currentUserId = $this->getCurrentUserId();
+
+    return $this->outputJson([
+      'status' => true,
+      'report' => $this->buildDeveloperPerformanceExportPayload(
+        $year,
+        $reportWindow['from_date'],
+        $reportWindow['to_date'],
+        $scopeUserIds,
+        $currentUserId
+      ),
+    ]);
+  }
+
   public function developer_hierarchy_data()
   {
     if (!$this->canAccessPerformance()) {
       return $this->outputJson(['status' => false, 'message' => 'Unauthorized'], 403);
     }
 
-    $year = (int) $this->input->get('year');
-    if ($year <= 0) {
-      $year = (int) date('Y');
-    }
+    $year = $this->normalizePerformanceYear($this->input->get('year'));
 
     $reviewerId = $this->getCurrentUserId();
     $scopeUserIds = $this->getPerformanceScopeUserIds();
@@ -217,11 +292,7 @@ class Developer extends MY_Controller
     }
 
     $userId = (int) $this->input->get('user_id');
-    $year = (int) $this->input->get('year');
-
-    if ($year <= 0) {
-      $year = (int) date('Y');
-    }
+    $year = $this->normalizePerformanceYear($this->input->get('year'));
 
     if ($userId <= 0) {
       return $this->outputJson(['status' => false, 'message' => 'Invalid user'], 422);
@@ -476,7 +547,12 @@ class Developer extends MY_Controller
     if ($this->session->userdata('role_id') == 2) {
       $this->load->model('Developer_model');
 
-      $data['devBarData'] = $this->Developer_model->getDeveloperWiseStatus();
+      $devBarData = $this->Developer_model->getDeveloperWiseStatus();
+      $data['devBarData'] = array_values(array_filter($devBarData, function ($developer) {
+        $name = strtolower(trim((string) ($developer['name'] ?? '')));
+
+        return $name !== 'qr workflow demo';
+      }));
 
       $this->load->view('IT_head/Status', $data);
     } else {

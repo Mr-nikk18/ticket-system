@@ -13,10 +13,7 @@ $selectedYearValue = isset($selected_year) ? (int) $selected_year : (int) date('
 $fyLabel = 'FY ' . $selectedYearValue . '-' . substr((string) ($selectedYearValue + 1), -2);
 
 $totalDevelopers = count($developers);
-$companies = [];
 $totalTickets = 0;
-$totalResolved = 0;
-$totalPending = 0;
 $reviewerAssigned = (int) ($overview['reviewer_assigned'] ?? 0);
 $acceptedTotal = (int) ($overview['accepted_total'] ?? 0);
 $directReports = (int) ($overview['direct_reports'] ?? 0);
@@ -24,22 +21,14 @@ $totalReports = (int) ($overview['total_reports'] ?? 0);
 $performanceSum = 0;
 
 foreach ($developers as $dev) {
-    if (!empty($dev['company_name'])) {
-        $companies[$dev['company_name']] = true;
-    }
-
     $devTotal = (int) $dev['total_tickets'];
     $devResolved = (int) $dev['resolved_tickets'];
-    $devPending = (int) $dev['pending_tickets'];
 
     $totalTickets += $devTotal;
-    $totalResolved += $devResolved;
-    $totalPending += $devPending;
     $performanceSum += $devTotal > 0 ? round(($devResolved / $devTotal) * 100) : 0;
 }
 
 $avgPerformance = $totalDevelopers > 0 ? round($performanceSum / $totalDevelopers) : 0;
-$totalCompanies = count($companies);
 ?>
 
 <div class="content-wrapper developer-performance-page">
@@ -53,7 +42,7 @@ $totalCompanies = count($companies);
         </div>
         <form method="get" class="perf-year-form">
           <label for="developerPerfYear" class="mb-1">Financial Year</label>
-          <div class="d-flex">
+          <div class="perf-year-form__primary">
             <input
               id="developerPerfYear"
               type="number"
@@ -62,21 +51,21 @@ $totalCompanies = count($companies);
               value="<?= $selectedYearValue ?>"
               min="2024"
               max="<?= date('Y') + 1 ?>">
-            <button type="submit" class="btn btn-warning ml-2">Apply</button>
+            <button type="submit" class="btn btn-warning">Apply</button>
           </div>
-          <div class="d-flex align-items-center mt-2">
+          <div class="perf-year-form__secondary">
             <label class="mr-2 mb-0">From</label>
-            <input type="date" id="reportFromDate" class="form-control form-control-sm mr-1" value="<?= date('Y-01-01') ?>" style="width: 160px;">
+            <input type="date" id="reportFromDate" class="form-control form-control-sm perf-date-input mr-1" value="<?= date('Y-01-01') ?>">
             <label class="mr-2 mb-0">To</label>
-            <input type="date" id="reportToDate" class="form-control form-control-sm mr-2" value="<?= date('Y-m-d') ?>" style="width: 160px;">
+            <input type="date" id="reportToDate" class="form-control form-control-sm perf-date-input mr-2" value="<?= date('Y-m-d') ?>">
             <button type="button" class="btn btn-light btn-sm" id="btnDeveloperReportPdf">Download Excel Report</button>
           </div>
         </form>
       </div>
 
       <div class="row mt-4">
-        <div class="col-xl-3 col-md-6 mb-3">
-          <div class="perf-stat-card theme-amber">
+        <div class="col-xl col-lg-4 col-md-6 mb-3 d-flex">
+          <div class="perf-stat-card theme-amber h-100 w-100">
             <div class="perf-stat-icon"><i class="fas fa-sitemap"></i></div>
             <div>
               <div class="perf-stat-value" id="perfOverviewTotalReports"><?= $totalReports ?></div>
@@ -85,8 +74,8 @@ $totalCompanies = count($companies);
             </div>
           </div>
         </div>
-        <div class="col-xl-3 col-md-6 mb-3">
-          <div class="perf-stat-card theme-indigo">
+        <div class="col-xl col-lg-4 col-md-6 mb-3 d-flex">
+          <div class="perf-stat-card theme-indigo h-100 w-100">
             <div class="perf-stat-icon"><i class="fas fa-hand-point-right"></i></div>
             <div>
               <div class="perf-stat-value" id="perfOverviewAssignedByYou"><?= $reviewerAssigned ?></div>
@@ -95,8 +84,8 @@ $totalCompanies = count($companies);
             </div>
           </div>
         </div>
-        <div class="col-xl-3 col-md-6 mb-3">
-          <div class="perf-stat-card theme-teal">
+        <div class="col-xl col-lg-4 col-md-6 mb-3 d-flex">
+          <div class="perf-stat-card theme-teal h-100 w-100">
             <div class="perf-stat-icon"><i class="fas fa-check-double"></i></div>
             <div>
               <div class="perf-stat-value" id="perfOverviewAccepted"><?= $acceptedTotal ?></div>
@@ -105,8 +94,8 @@ $totalCompanies = count($companies);
             </div>
           </div>
         </div>
-        <div class="col-xl-3 col-md-6 mb-3">
-          <div class="perf-stat-card theme-emerald">
+        <div class="col-xl col-lg-4 col-md-6 mb-3 d-flex">
+          <div class="perf-stat-card theme-emerald h-100 w-100">
             <div class="perf-stat-icon"><i class="fas fa-user-clock"></i></div>
             <div>
               <div class="perf-stat-value" id="perfOverviewDelegation"><?= $overview['delegation_absence'] ?? 0 ?></div>
@@ -115,8 +104,8 @@ $totalCompanies = count($companies);
             </div>
           </div>
         </div>
-        <div class="col-xl-3 col-md-6 mb-3">
-          <div class="perf-stat-card theme-carbon">
+        <div class="col-xl col-lg-4 col-md-6 mb-3 d-flex">
+          <div class="perf-stat-card theme-carbon h-100 w-100">
             <div class="perf-stat-icon"><i class="fas fa-chart-line"></i></div>
             <div>
               <div class="perf-stat-value"><?= $avgPerformance ?>%</div>
@@ -131,12 +120,12 @@ $totalCompanies = count($companies);
 
   <section class="content pb-4">
     <div class="container-fluid">
-     <div class="perf-side-shell perf-horizontal">
-        <aside class="perf-card-row">
+     <div class="perf-side-shell">
+        <aside class="perf-side-nav">
           <div class="perf-side-nav__head">
             <span class="perf-mini-label">Section Navigator</span>
             <h3>Performance Sections</h3>
-            <p>Sidebar se section choose karo. Detail aur hierarchy same page par AJAX se load honge.</p>
+            <p>Review queue, live team status aur hierarchy controls ek clean workspace me aligned hain.</p>
           </div>
 
           <div class="perf-scope-block">
@@ -149,20 +138,22 @@ $totalCompanies = count($companies);
             </div>
           </div>
 
-          <button type="button" class="perf-side-nav-btn is-active" data-target="queue">
-            <span class="perf-side-nav-btn__title">Review Queue</span>
-            <span class="perf-side-nav-btn__meta">Developer cards and filters</span>
-          </button>
+          <div class="perf-side-nav__actions">
+            <button type="button" class="perf-side-nav-btn is-active" data-target="queue">
+              <span class="perf-side-nav-btn__title">Review Queue</span>
+              <span class="perf-side-nav-btn__meta">Developer cards and filters</span>
+            </button>
 
-          <button type="button" class="perf-side-nav-btn" data-target="detail">
-            <span class="perf-side-nav-btn__title">Performance Detail</span>
-            <span class="perf-side-nav-btn__meta">Full-width AJAX detail view</span>
-          </button>
+            <button type="button" class="perf-side-nav-btn" data-target="detail">
+              <span class="perf-side-nav-btn__title">Performance Detail</span>
+              <span class="perf-side-nav-btn__meta">Full-width AJAX detail view</span>
+            </button>
 
-          <button type="button" class="perf-side-nav-btn" data-target="hierarchy">
-            <span class="perf-side-nav-btn__title">Hierarchy Manager</span>
-            <span class="perf-side-nav-btn__meta">Reporting structure and reassignment</span>
-          </button>
+            <button type="button" class="perf-side-nav-btn" data-target="hierarchy">
+              <span class="perf-side-nav-btn__title">Hierarchy Manager</span>
+              <span class="perf-side-nav-btn__meta">Reporting structure and reassignment</span>
+            </button>
+          </div>
 
           <div class="perf-side-context" id="perfSideContext">
             <span class="perf-mini-label">Current Focus</span>
@@ -217,7 +208,7 @@ $totalCompanies = count($companies);
                   <h4>Live Ticket Status</h4>
                   <div class="perf-mini-label mt-1">
                     Scope <strong id="perfTicketScopeLabel"><?= htmlspecialchars(ucfirst($ticketScope)) ?></strong>
-                    <span class="mx-1">·</span>
+                    <span class="mx-1">&middot;</span>
                     Total <strong id="perfTicketTotal"><?= (int) ($ticketOverview['total_tickets'] ?? 0) ?></strong>
                   </div>
                 </div>
@@ -246,11 +237,11 @@ $totalCompanies = count($companies);
                   $initials = strtoupper(substr(trim((string) $dev['name']), 0, 1));
                   ?>
                   <div
-                    class="col-xl-6 developer-performance-item"
+                    class="col-xl-6 developer-performance-item d-flex"
                     data-name="<?= htmlspecialchars(strtolower($dev['name'])) ?>"
                     data-company="<?= htmlspecialchars(strtolower($dev['company_name'] ?: 'no company')) ?>"
                     data-department="<?= htmlspecialchars(strtolower($dev['department_name'] ?: 'no department')) ?>">
-                    <div class="perf-dev-card" data-developer-id="<?= (int) $dev['user_id'] ?>" data-developer-name="<?= htmlspecialchars($dev['name']) ?>">
+                    <div class="perf-dev-card w-100" data-developer-id="<?= (int) $dev['user_id'] ?>" data-developer-name="<?= htmlspecialchars($dev['name']) ?>">
                       <div class="perf-dev-glow"></div>
                       <div class="perf-dev-header">
                         <div class="perf-dev-avatar"><?= htmlspecialchars($initials) ?></div>
@@ -483,6 +474,26 @@ $totalCompanies = count($companies);
   min-width: 220px;
 }
 
+.perf-year-form__primary,
+.perf-year-form__secondary {
+  align-items: center;
+  display: flex;
+}
+
+.perf-year-form__secondary {
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.perf-date-input {
+  width: 160px;
+}
+
+.perf-year-form__primary .btn {
+  margin-left: 0.5rem;
+}
+
 .perf-stat-card,
 .perf-panel,
 .perf-dev-card {
@@ -542,40 +553,6 @@ $totalCompanies = count($companies);
   padding-bottom: 1rem;
 }
 
-.perf-side-shell {
-  display: block;   /* 🔥 sidebar हटाओ */
-}
-
-/* 🔥 TOP CARD ROW */
-.perf-side-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-
-  position: static;
-  min-height: auto;
-  background: none;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-}
-
-/* 🔥 HEADER FULL WIDTH */
-.perf-side-nav__head {
-  width: 100%;
-}
-
-/* 🔥 BUTTON CARDS */
-.perf-side-nav-btn {
-  flex: 1;
-  min-width: 250px;
-  width: auto;   /* 🔥 important */
-}
-
-/* 🔥 CURRENT FOCUS */
-.perf-side-context {
-  width: 100%;
-}
 
 .perf-side-nav__head h3 {
   margin: 0.35rem 0 0.45rem;
@@ -622,88 +599,12 @@ $totalCompanies = count($companies);
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
 }
 
-.perf-scope-btn {
-  appearance: none;
-  border: 0;
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  font-size: 0.85rem;
-  color: rgba(255, 251, 244, 0.9);
-  background: transparent;
-  transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
-}
-
-.perf-scope-btn:hover {
-  background: rgba(255, 251, 244, 0.14);
-  transform: translateY(-1px);
-}
-
-.perf-scope-btn.is-active {
-  background: rgba(255, 251, 244, 0.92);
-  color: #3b2c1a;
-  box-shadow: 0 10px 24px rgba(31, 22, 13, 0.14);
-}
-
 /* 🔥 CARD ROW */
-.perf-side-nav {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  background: none;
-  padding: 0;
-  border: none;
-  box-shadow: none;
-}
-
 /* 🔥 BUTTON → CARD */
-.perf-side-nav-btn {
-  flex: 1;
-  min-width: 280px;
-
-  background: rgba(255, 251, 244, 0.95);   /* same as stat card */
-  border: 1px solid rgba(99, 69, 31, 0.1);
-  border-radius: 24px;
-  padding: 18px;
-
-  box-shadow: 0 12px 30px rgba(31, 22, 13, 0.08);
-
-  text-align: left;
-  transition: 0.25s ease;
-}
-
 /* 🔥 HOVER EFFECT */
-.perf-side-nav-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 18px 40px rgba(31, 22, 13, 0.12);
-}
-
 /* 🔥 ACTIVE CARD (orange like top UI) */
-.perf-side-nav-btn.is-active {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #1f1a13;
-  border: none;
-}
-
 /* 🔥 TITLE */
-.perf-side-nav-btn__title {
-  font-size: 1rem;
-  font-weight: 700;
-}
-
 /* 🔥 SUBTEXT */
-.perf-side-nav-btn__meta {
-  font-size: 0.85rem;
-  margin-top: 4px;
-  opacity: 0.7;
-}
-
-.perf-side-nav-btn:hover {
-  transform: translateX(3px);
-  background: rgba(255, 255, 255, 0.11);
-}
-
 .perf-side-nav-btn.is-active {
   background: linear-gradient(135deg, #f59e0b, #d97706);
   color: #1f1a13;
@@ -1237,14 +1138,66 @@ $totalCompanies = count($companies);
   overflow: hidden;
 }
 
+.perf-side-shell {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.perf-side-nav {
+  background: linear-gradient(135deg, rgba(32, 25, 18, 0.96), rgba(82, 56, 18, 0.92));
+  border: 1px solid rgba(99, 69, 31, 0.16);
+  border-radius: 28px;
+  box-shadow: var(--perf-shadow);
+  display: grid;
+  gap: 1rem;
+  padding: 1.4rem;
+}
+
+.perf-side-nav__actions {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.perf-side-nav__head,
+.perf-scope-block,
+.perf-side-context {
+  min-width: 0;
+}
+
+.perf-side-context {
+  margin-top: 0;
+  width: 100%;
+}
+
+.perf-side-nav-btn {
+  min-width: 0;
+  padding: 1rem 1.1rem;
+  width: 100%;
+}
+
+.perf-side-nav-btn:hover {
+  background: #ffffff;
+  transform: translateY(-3px);
+}
+
+.perf-panel-tools {
+  align-items: center;
+  display: flex;
+}
+
+.perf-dev-card {
+  height: 100%;
+  margin-bottom: 0;
+}
+
 @media (max-width: 1199.98px) {
-  .perf-side-shell {
-    grid-template-columns: 250px minmax(0, 1fr);
+  .perf-side-nav__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 991.98px) {
-  .perf-side-shell,
   .perf-hero,
   .perf-hierarchy-layout,
   .perf-chart-grid,
@@ -1257,9 +1210,8 @@ $totalCompanies = count($companies);
     align-items: flex-start;
   }
 
-  .perf-side-nav {
-    position: static;
-    min-height: 0;
+  .perf-side-nav__actions {
+    grid-template-columns: 1fr;
   }
 
   .perf-main-panel {
@@ -1268,9 +1220,24 @@ $totalCompanies = count($companies);
 }
 
 @media (max-width: 767.98px) {
+  .perf-year-form__primary,
+  .perf-year-form__secondary,
   .perf-dev-footer,
   .perf-metric-row {
     grid-template-columns: 1fr;
+  }
+
+  .perf-year-form__primary,
+  .perf-year-form__secondary {
+    display: grid;
+  }
+
+  .perf-date-input {
+    width: 100%;
+  }
+
+  .perf-year-form__primary .btn {
+    margin-left: 0 !important;
   }
 
   .perf-link-label {
@@ -1286,7 +1253,7 @@ window.DeveloperPerformanceConfig = {
   hierarchyMemberUrl: '<?= base_url('Developer/developer_hierarchy_member') ?>',
   hierarchyUpdateUrl: '<?= base_url('Developer/developer_hierarchy_update') ?>',
   dataUrl: '<?= base_url('Developer/developer_performance_data') ?>',
-  exportUrl: '<?= base_url('Developer/developer_performance_report') ?>',
+  exportDataUrl: '<?= base_url('Developer/developer_performance_export_data') ?>',
   year: <?= $selectedYearValue ?>,
   fyLabel: '<?= htmlspecialchars($fyLabel, ENT_QUOTES) ?>',
   initialTicketScope: '<?= htmlspecialchars($ticketScope, ENT_QUOTES) ?>',

@@ -43,9 +43,13 @@
             '</body></html>';
     }
 
-    function getCopies() {
+    function sanitizeCopiesInput() {
         var copiesInput = document.getElementById('qrPrintCopies');
         var copies = parseInt((copiesInput && copiesInput.value) || '1', 10);
+
+        if (!copiesInput) {
+            return 1;
+        }
 
         if (!copies || copies < 1) {
             copies = 1;
@@ -55,7 +59,92 @@
             copies = 20;
         }
 
+        copiesInput.value = copies;
+
         return copies;
+    }
+
+    function getCopies() {
+        return sanitizeCopiesInput();
+    }
+
+    function waitForImages(doc, callback) {
+        var images = Array.prototype.slice.call(doc.images || []);
+        var pendingCount = 0;
+        var hasCompleted = false;
+
+        function finish() {
+            if (hasCompleted) {
+                return;
+            }
+
+            hasCompleted = true;
+            callback();
+        }
+
+        function markReady() {
+            pendingCount -= 1;
+
+            if (pendingCount <= 0) {
+                finish();
+            }
+        }
+
+        if (!images.length) {
+            finish();
+            return;
+        }
+
+        images.forEach(function (imageNode) {
+            if (imageNode.complete) {
+                return;
+            }
+
+            pendingCount += 1;
+
+            var onImageReady = function () {
+                imageNode.removeEventListener('load', onImageReady);
+                imageNode.removeEventListener('error', onImageReady);
+                markReady();
+            };
+
+            imageNode.addEventListener('load', onImageReady);
+            imageNode.addEventListener('error', onImageReady);
+        });
+
+        if (pendingCount === 0) {
+            finish();
+        }
+    }
+
+    function triggerPrint(printWindow) {
+        var hasPrinted = false;
+
+        function runPrint() {
+            if (hasPrinted) {
+                return;
+            }
+
+            hasPrinted = true;
+            printWindow.focus();
+            printWindow.print();
+        }
+
+        function onReady() {
+            waitForImages(printWindow.document, runPrint);
+        }
+
+        if (printWindow.document.readyState === 'complete') {
+            onReady();
+            return;
+        }
+
+        var onLoad = function () {
+            printWindow.removeEventListener('load', onLoad);
+            onReady();
+        };
+
+        printWindow.addEventListener('load', onLoad);
     }
 
     function printCards(cardNodes) {
@@ -74,23 +163,31 @@
 
         var printWindow = window.open('', '_blank', 'width=1200,height=900');
         if (!printWindow) {
+            window.alert('Allow pop-ups for this page to print QR labels.');
             return;
         }
 
         printWindow.document.open();
         printWindow.document.write(buildPrintDocument(printableCards.join('')));
         printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
+        triggerPrint(printWindow);
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         var printButton = document.getElementById('printFilteredQrBtn');
         var printModeSelect = document.getElementById('qrPrintMode');
+        var copiesInput = document.getElementById('qrPrintCopies');
         var cardNodes = Array.prototype.slice.call(document.querySelectorAll('[data-print-card="true"]'));
 
         if (!printButton) {
             return;
+        }
+
+        sanitizeCopiesInput();
+
+        if (copiesInput) {
+            copiesInput.addEventListener('change', sanitizeCopiesInput);
+            copiesInput.addEventListener('blur', sanitizeCopiesInput);
         }
 
         printButton.addEventListener('click', function () {
